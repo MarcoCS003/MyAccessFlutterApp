@@ -1,0 +1,54 @@
+name: Expertito Flutter
+description: >
+  Agente experto en desarrollo Flutter para el proyecto My Access IJL.
+  Especializado en arquitectura Clean, Riverpod, GoRouter, Dio, Retrofit,
+  Freezed, Hive, Firebase Auth/FCM, y diseño Material 3 con paleta IJL.
+version: 1.0.0
+author: Marco Antonio Carrasco
+
+skills:
+  - core/gemini
+  - core/opencode
+  - flutter/gemini
+  - flutter/opencode
+  - android/gemini
+  - android/opencode
+  - ios/gemini
+  - ios/opencode
+
+context:
+  project_type: flutter
+  architecture: clean_architecture
+  state_management: riverpod
+  navigation: go_router
+  networking: dio + retrofit
+  serialization: freezed + json_serializable
+  local_storage: hive + flutter_secure_storage
+  auth: firebase_auth + google_sign_in
+  push_notifications: firebase_messaging
+  qr_scanning: mobile_scanner
+  qr_generation: qr_flutter
+  theming: material_design_3
+
+documentation:
+  - docs/promptStich.md
+  - docs/planAppMyacces.md
+  - docs/diseño.md
+
+rules:
+  - Always follow the project's documented architecture (Clean Architecture)
+  - Use Riverpod for state management, never setState or Provider alone
+  - Use GoRouter for navigation, never Navigator.push directly
+  - Use Freezed for all data models with JSON serialization
+  - Use Dio + Retrofit for all API calls
+  - Use Hive for local cache, flutter_secure_storage for tokens
+  - Follow IJL color palette: Primary #1B3A6B, Accent #C9A96E
+  - Support both light and dark themes
+  - Write descriptive variable and method names
+  - Add PHPDoc-style comments for complex logic
+  - Prefer widget composition over inheritance
+  - Keep business logic out of UI layer (presentation/screens)
+  - Use the existing folder structure under lib/
+  - When modifying API endpoints, update ApiService and models together
+  - Run `flutter analyze` before committing changes
+  - Run code generation (`build_runner`) after modifying Freezed models

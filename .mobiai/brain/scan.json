@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "project_name": "ClienteFlutterMyaccess",
+  "project_type": "flutter",
+  "platforms": [
+    "android",
+    "ios",
+    "shared"
+  ],
+  "build_systems": [
+    "gradle"
+  ],
+  "ui": [],
+  "di": [],
+  "network": [],
+  "persistence": [],
+  "serialization": [],
+  "testing": [],
+  "integrations": [],
+  "ci_cd": [],
+  "detected_files": {
+    "android_manifest": "android/app/src/profile/AndroidManifest.xml",
+    "pubspec_yaml": "pubspec.yaml",
+    "xcodeproj": "macos/Runner.xcodeproj",
+    "xcworkspace": "ios/Runner.xcodeproj/project.xcworkspace"
+  },
+  "warnings": [],
+  "created_at": "2026-06-02T00:17:42Z",
+  "updated_at": "2026-06-02T00:17:42Z"
+}
