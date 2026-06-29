@@ -41,7 +41,7 @@ class ApiService {
 
   Future<Dio> _authenticatedDio() async {
     final token = await _secureStorage.read(key: AppConstants.jwtTokenKey);
-    final authDio = _createDio();
+    final authDio = _dio;
     if (token != null && token.isNotEmpty) {
       authDio.options.headers['Authorization'] = 'Bearer $token';
     }

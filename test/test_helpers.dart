@@ -13,3 +13,12 @@ Future<void> initializeTestHive() async {
   await Hive.openBox('notifications_box');
   await Hive.openBox('settings_box');
 }
+
+/// Deletes all Hive boxes and closes the instance. Use in tearDown() of unit
+/// tests that write to Hive to keep each test isolated.
+Future<void> cleanUpTestHive() async {
+  await Hive.deleteBoxFromDisk('auth_box');
+  await Hive.deleteBoxFromDisk('children_box');
+  await Hive.deleteBoxFromDisk('notifications_box');
+  await Hive.deleteBoxFromDisk('settings_box');
+}
