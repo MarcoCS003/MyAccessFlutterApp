@@ -10,6 +10,7 @@ import 'package:cliente_flutter_myaccess/features/padres/providers/children_prov
 import 'package:cliente_flutter_myaccess/features/maestros/screens/home_maestro_screen.dart';
 import 'package:cliente_flutter_myaccess/features/maestros/screens/teacher_qr_screen.dart';
 import 'package:cliente_flutter_myaccess/features/notifications/screens/notifications_screen.dart';
+import 'package:cliente_flutter_myaccess/features/notifications/providers/notification_provider.dart';
 import 'package:cliente_flutter_myaccess/features/profile/screens/profile_screen.dart';
 
 class MainNavigationScreen extends ConsumerStatefulWidget {
@@ -27,6 +28,7 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
     final debugRole = ref.watch(debugRoleProvider);
+    final unreadCount = ref.watch(notificationProvider.notifier).unreadCount;
     final effectiveRole = debugRole ?? authState.user?.role ?? 'parent';
     final isTeacher = effectiveRole == 'teacher';
 
@@ -176,25 +178,33 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
                 .labelSmall
                 ?.copyWith(fontWeight: FontWeight.bold),
             unselectedLabelStyle: Theme.of(context).textTheme.labelSmall,
-            items: const [
-              BottomNavigationBarItem(
+            items: [
+              const BottomNavigationBarItem(
                 icon: Icon(Icons.home_outlined),
                 activeIcon: Icon(Icons.home, color: AppTheme.themeNavyColor),
                 label: 'Inicio',
               ),
-              BottomNavigationBarItem(
+              const BottomNavigationBarItem(
                 icon: Icon(Icons.qr_code_scanner_outlined),
                 activeIcon: Icon(Icons.qr_code_scanner,
                     color: AppTheme.themeNavyColor),
                 label: 'QR',
               ),
               BottomNavigationBarItem(
-                icon: Icon(Icons.notifications_outlined),
-                activeIcon:
-                    Icon(Icons.notifications, color: AppTheme.themeNavyColor),
+                icon: Badge(
+                  isLabelVisible: unreadCount > 0,
+                  label: Text('$unreadCount'),
+                  child: const Icon(Icons.notifications_outlined),
+                ),
+                activeIcon: Badge(
+                  isLabelVisible: unreadCount > 0,
+                  label: Text('$unreadCount'),
+                  child: const Icon(Icons.notifications,
+                      color: AppTheme.themeNavyColor),
+                ),
                 label: 'Notis',
               ),
-              BottomNavigationBarItem(
+              const BottomNavigationBarItem(
                 icon: Icon(Icons.person_outline),
                 activeIcon: Icon(Icons.person, color: AppTheme.themeNavyColor),
                 label: 'Perfil',

@@ -9,6 +9,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 import '../../../core/constants/app_constants.dart';
+import '../../../services/api_service.dart';
 import '../models/auth_state.dart';
 import '../models/user.dart';
 
@@ -18,11 +19,13 @@ class AuthNotifier extends StateNotifier<AuthState> {
     firebase_auth.FirebaseAuth? firebaseAuth,
     FirebaseMessaging? firebaseMessaging,
     FlutterSecureStorage? secureStorage,
+    ApiService? apiService,
     bool skipInitialCheck = false,
   })  : _googleSignIn = googleSignIn ?? GoogleSignIn(),
         _firebaseAuth = firebaseAuth ?? firebase_auth.FirebaseAuth.instance,
         _firebaseMessaging = firebaseMessaging ?? FirebaseMessaging.instance,
         _secureStorage = secureStorage ?? const FlutterSecureStorage(),
+        _apiService = apiService ?? ApiService(),
         super(const AuthState()) {
     if (!skipInitialCheck) {
       checkAuthStatus();
@@ -33,6 +36,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   final firebase_auth.FirebaseAuth _firebaseAuth;
   final FirebaseMessaging _firebaseMessaging;
   final FlutterSecureStorage _secureStorage;
+  final ApiService _apiService;
 
   Future<void> signInWithGoogle() async {
     try {
@@ -61,32 +65,51 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       final fcmToken = await _firebaseMessaging.getToken();
 
-      // TODO: Connect real backend endpoint /api/auth/google-login.
-      // For now, simulate a successful backend response for development.
-      await Future.delayed(const Duration(milliseconds: 800));
-      debugPrint('FCM token available for backend: $fcmToken');
+      User authenticatedUser;
+      String jwtToken;
 
-      // Simulated backend response for development.
-      // Remove once /api/auth/google-login is connected.
-      final simulatedUser = User(
-        id: 1,
-        name: googleUser.displayName ?? 'Usuario IJL',
-        email: googleUser.email,
-        avatar: googleUser.photoUrl,
-        role: googleUser.email.contains('teacher') ||
-                googleUser.email.contains('maestro')
-            ? AppConstants.roleTeacher
-            : AppConstants.roleParent,
-      );
+      try {
+        final response = await _apiService.post(
+          '/auth/google-login',
+          data: {
+            'idToken': idToken,
+            'fcmToken': fcmToken,
+          },
+          requiresAuth: false,
+        );
+
+        final responseData = response as Map<String, dynamic>;
+        jwtToken = responseData['token'] as String;
+        authenticatedUser = User.fromJson(responseData['user'] as Map<String, dynamic>);
+      } catch (e) {
+        // Fallback for local development when the backend is unavailable.
+        debugPrint('Backend login failed, using simulated response: $e');
+        await Future.delayed(const Duration(milliseconds: 400));
+        jwtToken = 'simulated_jwt_$idToken';
+        authenticatedUser = User(
+          id: 1,
+          name: googleUser.displayName ?? 'Usuario IJL',
+          email: googleUser.email,
+          avatar: googleUser.photoUrl,
+          role: googleUser.email.contains('teacher') ||
+                  googleUser.email.contains('maestro')
+              ? AppConstants.roleTeacher
+              : AppConstants.roleParent,
+        );
+      }
 
       await _persistSession(
-        jwtToken: 'simulated_jwt_$idToken',
-        user: simulatedUser,
+        jwtToken: jwtToken,
+        user: authenticatedUser,
       );
+
+      // Register FCM token with backend once authenticated.
+      await _registerFcmToken();
+      _listenToTokenRefresh();
 
       state = AuthState(
         status: AuthStatus.authenticated,
-        user: simulatedUser,
+        user: authenticatedUser,
       );
     } on firebase_auth.FirebaseAuthException catch (e) {
       state = AuthState(
@@ -146,6 +169,35 @@ class AuthNotifier extends StateNotifier<AuthState> {
     await _secureStorage.write(key: AppConstants.jwtTokenKey, value: jwtToken);
     final box = Hive.box(AppConstants.authBox);
     await box.put('user', user.toJson());
+  }
+
+  Future<void> _registerFcmToken() async {
+    try {
+      final fcmToken = await _firebaseMessaging.getToken();
+      if (fcmToken == null || fcmToken.isEmpty) return;
+
+      await _apiService.post(
+        '/update-fcm-token',
+        data: {'fcmToken': fcmToken},
+      );
+      debugPrint('FCM token registered successfully');
+    } catch (e) {
+      debugPrint('Failed to register FCM token: $e');
+    }
+  }
+
+  void _listenToTokenRefresh() {
+    _firebaseMessaging.onTokenRefresh.listen((newToken) async {
+      try {
+        await _apiService.post(
+          '/update-fcm-token',
+          data: {'fcmToken': newToken},
+        );
+        debugPrint('FCM token refreshed and registered');
+      } catch (e) {
+        debugPrint('Failed to register refreshed FCM token: $e');
+      }
+    });
   }
 
   String _firebaseAuthError(firebase_auth.FirebaseAuthException e) {

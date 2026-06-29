@@ -11,6 +11,7 @@ import 'package:cliente_flutter_myaccess/features/auth/models/auth_state.dart';
 import 'package:cliente_flutter_myaccess/features/auth/models/user.dart';
 
 import 'mocks/auth_mocks.dart';
+import 'test_helpers.dart';
 
 class MockHttpOverrides extends HttpOverrides {
   @override
@@ -91,8 +92,9 @@ final List<int> _transparentImage = [
 ];
 
 void main() {
-  setUpAll(() {
+  setUpAll(() async {
     HttpOverrides.global = MockHttpOverrides();
+    await initializeTestHive();
   });
 
   testWidgets('MainNavigationScreen debe mostrar BottomNavigationBar', (tester) async {
