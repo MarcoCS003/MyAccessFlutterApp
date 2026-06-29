@@ -1,69 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../../core/theme/theme.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../notifications/models/notification_item.dart';
+import '../providers/teacher_provider.dart';
 
-
-// ── Mock data per period ──────────────────────────────────────────────────────
-const _mockStats = {
-  'Semanal': {
-    'entradas': '5',
-    'salidas': '5',
-    'retardos': '0',
-    'puntualidad': '100%',
-    'horasRegistradas': '40',
-    'diasAsistidos': '5',
-  },
-  'Quincenal': {
-    'entradas': '13',
-    'salidas': '13',
-    'retardos': '2',
-    'puntualidad': '85%',
-    'horasRegistradas': '104',
-    'diasAsistidos': '13',
-  },
-  'Mensual': {
-    'entradas': '21',
-    'salidas': '20',
-    'retardos': '3',
-    'puntualidad': '88%',
-    'horasRegistradas': '168',
-    'diasAsistidos': '21',
-  },
-};
-
-class HomeMaestroScreen extends ConsumerStatefulWidget {
+class HomeMaestroScreen extends ConsumerWidget {
   const HomeMaestroScreen({super.key});
 
   @override
-  ConsumerState<HomeMaestroScreen> createState() => _HomeMaestroScreenState();
-}
-
-class _HomeMaestroScreenState extends ConsumerState<HomeMaestroScreen> {
-  String _selectedPeriod = 'Semanal';
-
-  final _historyItems = [
-    {'type': 'Entrada', 'time': '07:30 AM', 'date': 'Hoy'},
-    {'type': 'Salida', 'time': '--:-- PM', 'date': 'Hoy'},
-    {'type': 'Entrada', 'time': '07:28 AM', 'date': 'Ayer'},
-    {'type': 'Salida', 'time': '14:05 PM', 'date': 'Ayer'},
-  ];
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authProvider);
-    final fullName = authState.user?.name ?? 'Profesor';
-    final nameParts = fullName.split(' ');
-    final firstName = nameParts.length > 1 ? nameParts[1] : nameParts[0];
-    final initials = nameParts.length >= 2
-        ? '${nameParts[0][0]}${nameParts[1][0]}'
-        : nameParts[0][0];
+    final teacherState = ref.watch(teacherProvider);
+    final user = authState.user;
 
-    final stats = _mockStats[_selectedPeriod]!;
+    final fullName = user?.name ?? 'Profesor IJL';
+    final firstName = fullName.split(' ').first;
+    final email = user?.email ?? 'profesor@ijl.edu.mx';
+    final initials = fullName
+        .split(' ')
+        .take(2)
+        .map((w) => w.isNotEmpty ? w[0].toUpperCase() : '')
+        .join();
 
     return Scaffold(
+      backgroundColor: AppTheme.bgLightColor,
       appBar: AppBar(
         automaticallyImplyLeading: false,
         title: Text(
@@ -78,23 +43,6 @@ class _HomeMaestroScreenState extends ConsumerState<HomeMaestroScreen> {
         backgroundColor: AppTheme.primaryColor,
         foregroundColor: Colors.white,
         elevation: 0,
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 16.0),
-            child: CircleAvatar(
-              radius: 18,
-              backgroundColor: AppTheme.accentGoldColor,
-              child: Text(
-                initials.toUpperCase(),
-                style: GoogleFonts.poppins(
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ),
-        ],
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -102,160 +50,179 @@ class _HomeMaestroScreenState extends ConsumerState<HomeMaestroScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ── Greeting ────────────────────────────────────────────────
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
-                child: Text(
-                  'Hola, Profe $firstName 👋',
-                  style: GoogleFonts.poppins(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.textPrimaryColor,
+              // ── Header ────────────────────────────────────────────────────
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.fromLTRB(20, 24, 20, 28),
+                decoration: const BoxDecoration(
+                  color: AppTheme.primaryColor,
+                  borderRadius: BorderRadius.only(
+                    bottomLeft: Radius.circular(32),
+                    bottomRight: Radius.circular(32),
                   ),
                 ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
-                child: Text(
-                  'Revisa tus estadísticas y usa el tab QR para mostrar tu código.',
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    color: AppTheme.textSecondaryColor,
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 28),
-
-              // ── Estadísticas — Selector de período ───────────────────────
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Mis estadísticas',
-                      style: GoogleFonts.poppins(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.textPrimaryColor,
+                    CircleAvatar(
+                      radius: 44,
+                      backgroundColor: AppTheme.lightGoldColor,
+                      child: Text(
+                        initials,
+                        style: GoogleFonts.poppins(
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.accentGoldColor,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: AppTheme.accentGoldColor,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        'MAESTRO',
+                        style: GoogleFonts.poppins(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                          letterSpacing: 1.1,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 10),
-                    // Period selector chips
-                    Row(
-                      children: ['Semanal', 'Quincenal', 'Mensual']
-                          .map((period) => GestureDetector(
-                                onTap: () =>
-                                    setState(() => _selectedPeriod = period),
-                                child: AnimatedContainer(
-                                  duration: const Duration(milliseconds: 200),
-                                  margin: const EdgeInsets.only(right: 8),
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 14, vertical: 6),
-                                  decoration: BoxDecoration(
-                                    color: _selectedPeriod == period
-                                        ? AppTheme.primaryColor
-                                        : AppTheme.borderLightColor,
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                  child: Text(
-                                    period,
-                                    style: GoogleFonts.inter(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: _selectedPeriod == period
-                                          ? Colors.white
-                                          : AppTheme.textSecondaryColor,
-                                    ),
-                                  ),
-                                ),
-                              ))
-                          .toList(),
+                    Text(
+                      'Hola, Profe $firstName',
+                      style: GoogleFonts.poppins(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      email,
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        color: Colors.white.withValues(alpha: 0.75),
+                      ),
                     ),
                   ],
                 ),
               ),
 
-              const SizedBox(height: 14),
+              const SizedBox(height: 24),
 
-              // ── Stats Grid (2×3) ─────────────────────────────────────────
+              // ── QR Card ───────────────────────────────────────────────────
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Column(
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _StatCard(
-                            title: 'Entradas',
-                            value: stats['entradas']!,
-                            icon: Icons.login_rounded,
-                            iconColor: AppTheme.successColor,
+                child: Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.06),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      if (teacherState.qrData.isNotEmpty)
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: QrImageView(
+                            data: teacherState.qrData,
+                            size: 96,
+                            padding: const EdgeInsets.all(4),
+                            eyeStyle: const QrEyeStyle(
+                              eyeShape: QrEyeShape.square,
+                              color: AppTheme.primaryColor,
+                            ),
+                            dataModuleStyle: const QrDataModuleStyle(
+                              dataModuleShape: QrDataModuleShape.square,
+                              color: AppTheme.primaryColor,
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _StatCard(
-                            title: 'Salidas',
-                            value: stats['salidas']!,
-                            icon: Icons.logout_rounded,
-                            iconColor: AppTheme.themeNavyColor,
+                        )
+                      else
+                        Container(
+                          width: 96,
+                          height: 96,
+                          decoration: BoxDecoration(
+                            color: AppTheme.borderLightColor,
+                            borderRadius: BorderRadius.circular(12),
                           ),
+                          child: const Icon(Icons.qr_code,
+                              color: AppTheme.textSecondaryColor),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _StatCard(
-                            title: 'Retardos',
-                            value: stats['retardos']!,
-                            icon: Icons.access_time_rounded,
-                            iconColor: AppTheme.accentGoldColor,
-                          ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Tu código de maestro',
+                              style: GoogleFonts.poppins(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.textPrimaryColor,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Muestra este QR en el checador o compártelo con padres para vincularte.',
+                              style: GoogleFonts.inter(
+                                fontSize: 12,
+                                color: AppTheme.textSecondaryColor,
+                                height: 1.4,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            SizedBox(
+                              height: 36,
+                              child: OutlinedButton(
+                                onPressed: () => context.push('/teacher-qr'),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: AppTheme.primaryColor,
+                                  side: const BorderSide(
+                                      color: AppTheme.primaryColor),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  padding:
+                                      const EdgeInsets.symmetric(horizontal: 14),
+                                ),
+                                child: Text(
+                                  'Ver QR grande',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _StatCard(
-                            title: 'Puntualidad',
-                            value: stats['puntualidad']!,
-                            icon: Icons.verified_rounded,
-                            iconColor: const Color(0xFF8B5CF6),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _StatCard(
-                            title: 'Horas reg.',
-                            value: stats['horasRegistradas']!,
-                            icon: Icons.schedule_rounded,
-                            iconColor: AppTheme.primaryColor,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _StatCard(
-                            title: 'Días asistidos',
-                            value: stats['diasAsistidos']!,
-                            icon: Icons.calendar_today_rounded,
-                            iconColor: AppTheme.errorColor,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
 
               const SizedBox(height: 28),
 
-              // ── Historial de hoy ─────────────────────────────────────────
+              // ── Estadísticas ──────────────────────────────────────────────
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Text(
-                  'Historial de hoy',
+                  'Resumen de notificaciones',
                   style: GoogleFonts.poppins(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -263,35 +230,71 @@ class _HomeMaestroScreenState extends ConsumerState<HomeMaestroScreen> {
                   ),
                 ),
               ),
-              const SizedBox(height: 12),
-              ..._historyItems
-                  .where((item) => item['date'] == 'Hoy')
-                  .map((item) => _HistoryItem(
-                        type: item['type']!,
-                        time: item['time']!,
-                      )),
+              const SizedBox(height: 14),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _StatCard(
+                        title: 'Hoy',
+                        value: '${teacherState.stats.todayCount}',
+                        icon: Icons.today_rounded,
+                        iconColor: AppTheme.successColor,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _StatCard(
+                        title: 'Semana',
+                        value: '${teacherState.stats.weekCount}',
+                        icon: Icons.date_range_rounded,
+                        iconColor: AppTheme.themeNavyColor,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _StatCard(
+                        title: 'Total',
+                        value: '${teacherState.stats.totalCount}',
+                        icon: Icons.notifications_rounded,
+                        iconColor: AppTheme.accentGoldColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
 
-              const SizedBox(height: 20),
+              const SizedBox(height: 28),
 
-              // ── Historial de ayer ────────────────────────────────────────
+              // ── Timeline de hoy ───────────────────────────────────────────
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Text(
-                  'Ayer',
+                  'Notificaciones de hoy',
                   style: GoogleFonts.poppins(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.textSecondaryColor,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.textPrimaryColor,
                   ),
                 ),
               ),
-              const SizedBox(height: 10),
-              ..._historyItems
-                  .where((item) => item['date'] == 'Ayer')
-                  .map((item) => _HistoryItem(
-                        type: item['type']!,
-                        time: item['time']!,
-                      )),
+              const SizedBox(height: 14),
+              if (teacherState.todayNotifications.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  child: _EmptyTodayState(),
+                )
+              else
+                ...teacherState.todayNotifications.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final notification = entry.value;
+                  return _TodayNotificationTile(
+                    notification: notification,
+                    isLast:
+                        index == teacherState.todayNotifications.length - 1,
+                  );
+                }),
             ],
           ),
         ),
@@ -300,7 +303,6 @@ class _HomeMaestroScreenState extends ConsumerState<HomeMaestroScreen> {
   }
 }
 
-// ── Stat Card Widget ──────────────────────────────────────────────────────────
 class _StatCard extends StatelessWidget {
   final String title;
   final String value;
@@ -317,10 +319,10 @@ class _StatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppTheme.borderLightColor),
         boxShadow: [
           BoxShadow(
@@ -339,9 +341,9 @@ class _StatCard extends StatelessWidget {
               color: iconColor.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, color: iconColor, size: 16),
+            child: Icon(icon, color: iconColor, size: 18),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           Text(
             value,
             style: GoogleFonts.poppins(
@@ -353,7 +355,7 @@ class _StatCard extends StatelessWidget {
           Text(
             title,
             style: GoogleFonts.inter(
-              fontSize: 10,
+              fontSize: 11,
               color: AppTheme.textSecondaryColor,
             ),
           ),
@@ -363,65 +365,137 @@ class _StatCard extends StatelessWidget {
   }
 }
 
-// ── History Item Widget ───────────────────────────────────────────────────────
-class _HistoryItem extends StatelessWidget {
-  final String type;
-  final String time;
-
-  const _HistoryItem({required this.type, required this.time});
+class _EmptyTodayState extends StatelessWidget {
+  const _EmptyTodayState();
 
   @override
   Widget build(BuildContext context) {
-    final isEntrada = type == 'Entrada';
-    final color =
-        isEntrada ? AppTheme.successColor : AppTheme.textSecondaryColor;
-    final icon = isEntrada ? Icons.login_rounded : Icons.logout_rounded;
-
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 20),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppTheme.borderLightColor),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
+      ),
+      child: Column(
+        children: [
+          const Icon(
+            Icons.notifications_off_outlined,
+            size: 48,
+            color: AppTheme.borderLightColor,
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'Sin notificaciones hoy',
+            style: GoogleFonts.poppins(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.textPrimaryColor,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Cuando lleguen alertas de entrada o salida aparecerán aquí.',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(
+              fontSize: 13,
+              color: AppTheme.textSecondaryColor,
+            ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _TodayNotificationTile extends StatelessWidget {
+  final NotificationItem notification;
+  final bool isLast;
+
+  const _TodayNotificationTile({
+    required this.notification,
+    required this.isLast,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isEntry = notification.event == 'check_in';
+    final color = isEntry ? AppTheme.successColor : AppTheme.textSecondaryColor;
+    final icon = isEntry ? Icons.login_rounded : Icons.logout_rounded;
+    final time =
+        '${notification.timestamp.hour.toString().padLeft(2, '0')}:${notification.timestamp.minute.toString().padLeft(2, '0')}';
+
+    return IntrinsicHeight(
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
+          Padding(
+            padding: const EdgeInsets.only(left: 20),
+            child: Column(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icon, color: color, size: 20),
+                ),
+                if (!isLast)
+                  Expanded(
+                    child: Container(
+                      width: 2,
+                      color: AppTheme.borderLightColor,
+                    ),
+                  ),
+              ],
             ),
-            child: Icon(icon, color: color, size: 20),
           ),
           const SizedBox(width: 14),
           Expanded(
-            child: Text(
-              type,
-              style: GoogleFonts.poppins(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.textPrimaryColor,
+            child: Container(
+              margin: const EdgeInsets.only(right: 20, bottom: 12),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppTheme.borderLightColor),
               ),
-            ),
-          ),
-          Text(
-            time,
-            style: GoogleFonts.inter(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              color: isEntrada
-                  ? AppTheme.textPrimaryColor
-                  : AppTheme.textSecondaryColor,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        notification.title,
+                        style: GoogleFonts.inter(
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.textPrimaryColor,
+                        ),
+                      ),
+                      Text(
+                        time,
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textSecondaryColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    notification.body,
+                    style: GoogleFonts.inter(
+                      fontSize: 13,
+                      color: AppTheme.textSecondaryColor,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],

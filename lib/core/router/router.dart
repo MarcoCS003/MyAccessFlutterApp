@@ -71,6 +71,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const TeacherQRScreen(),
       ),
       GoRoute(
+        path: '/teacher-qr',
+        builder: (context, state) => const TeacherQRScreen(),
+      ),
+      GoRoute(
         path: '/notifications',
         builder: (context, state) => const NotificationsScreen(),
       ),

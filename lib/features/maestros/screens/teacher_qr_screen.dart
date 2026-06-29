@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../../core/theme/theme.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../providers/teacher_provider.dart';
 
 class TeacherQRScreen extends ConsumerWidget {
   const TeacherQRScreen({super.key});
@@ -12,10 +14,14 @@ class TeacherQRScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authProvider);
-    final teacherCodeData = 'https://ijl.edu.mx/qr/teacher-carlos-ortega-2026';
+    final teacherState = ref.watch(teacherProvider);
+    final user = authState.user;
 
-    final userName = authState.user?.name ?? 'Profesor IJL';
-    final userEmail = authState.user?.email ?? 'profesor@ijl.edu.mx';
+    final userName = user?.name ?? 'Profesor IJL';
+    final userEmail = user?.email ?? 'profesor@ijl.edu.mx';
+    final qrData = teacherState.qrData.isNotEmpty
+        ? teacherState.qrData
+        : 'teacher-placeholder';
 
     return Scaffold(
       backgroundColor: AppTheme.bgLightColor,
@@ -35,7 +41,7 @@ class TeacherQRScreen extends ConsumerWidget {
         leading: (ModalRoute.of(context)?.canPop ?? false)
             ? IconButton(
                 icon: const Icon(Icons.arrow_back_ios_new_rounded),
-                onPressed: () => Navigator.of(context).pop(),
+                onPressed: () => context.pop(),
               )
             : null,
         automaticallyImplyLeading: false,
@@ -45,7 +51,6 @@ class TeacherQRScreen extends ConsumerWidget {
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
           child: Column(
             children: [
-              // ── QR White Card ─────────────────────────────────────────────
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(28),
@@ -62,16 +67,15 @@ class TeacherQRScreen extends ConsumerWidget {
                 ),
                 child: Column(
                   children: [
-                    // DOCENTE badge pill
                     Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 6),
                       decoration: BoxDecoration(
-                        color: Colors.amber,
+                        color: AppTheme.accentGoldColor,
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
-                        'DOCENTE',
+                        'MAESTRO',
                         style: GoogleFonts.poppins(
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
@@ -80,37 +84,30 @@ class TeacherQRScreen extends ConsumerWidget {
                         ),
                       ),
                     ),
-
                     const SizedBox(height: 16),
-
                     Text(
-                      'Muestra este código en el checador',
+                      'Muestra este código para que los padres te vinculen',
                       textAlign: TextAlign.center,
                       style: GoogleFonts.inter(
                         fontSize: 14,
                         color: AppTheme.textSecondaryColor,
                       ),
                     ),
-
-                    const SizedBox(height: 20),
-
-                    // QR code
+                    const SizedBox(height: 24),
                     QrImageView(
-                      data: teacherCodeData,
+                      data: qrData,
                       size: 220.0,
-                      dataModuleStyle: QrDataModuleStyle(
+                      backgroundColor: Colors.white,
+                      dataModuleStyle: const QrDataModuleStyle(
                         dataModuleShape: QrDataModuleShape.square,
-                        color: Theme.of(context).colorScheme.primary,
+                        color: AppTheme.primaryColor,
                       ),
-                      eyeStyle: QrEyeStyle(
+                      eyeStyle: const QrEyeStyle(
                         eyeShape: QrEyeShape.square,
-                        color: Theme.of(context).colorScheme.primary,
+                        color: AppTheme.primaryColor,
                       ),
                     ),
-
-                    const SizedBox(height: 20),
-
-                    // Teacher name
+                    const SizedBox(height: 24),
                     Text(
                       userName,
                       textAlign: TextAlign.center,
@@ -120,10 +117,7 @@ class TeacherQRScreen extends ConsumerWidget {
                         color: AppTheme.textPrimaryColor,
                       ),
                     ),
-
                     const SizedBox(height: 4),
-
-                    // Teacher email
                     Text(
                       userEmail,
                       textAlign: TextAlign.center,
@@ -135,10 +129,7 @@ class TeacherQRScreen extends ConsumerWidget {
                   ],
                 ),
               ),
-
               const SizedBox(height: 28),
-
-              // ── Info row ──────────────────────────────────────────────────
               Container(
                 padding: const EdgeInsets.symmetric(
                     horizontal: 20, vertical: 16),
@@ -158,7 +149,7 @@ class TeacherQRScreen extends ConsumerWidget {
                     const SizedBox(width: 14),
                     Expanded(
                       child: Text(
-                        'Acerca tu teléfono al lector del checador',
+                        'Acerca tu teléfono al lector del checador o muéstralo a los padres.',
                         style: GoogleFonts.inter(
                           fontSize: 13,
                           color: AppTheme.textPrimaryColor,

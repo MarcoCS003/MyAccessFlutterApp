@@ -1,3 +1,4 @@
+/// Estadísticas de notificaciones calculadas localmente desde Hive.
 class TeacherStats {
   final int todayCount;
   final int weekCount;
