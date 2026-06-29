@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "51217244764",
+    "project_id": "notificacionesapptutores",
+    "storage_bucket": "notificacionesapptutores.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:51217244764:android:65d865b07dbbaeb6d3fc99",
+        "android_client_info": {
+          "package_name": "com.jmoreno.riverboldbrave"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAMoLzRhVLZiwUzP69WmDx189bBnZPHCeg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

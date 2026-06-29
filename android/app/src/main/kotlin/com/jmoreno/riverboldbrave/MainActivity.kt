@@ -1,4 +1,4 @@
-package com.ijl.cliente_flutter_myaccess
+package com.jmoreno.riverboldbrave
 
 import io.flutter.embedding.android.FlutterActivity
 

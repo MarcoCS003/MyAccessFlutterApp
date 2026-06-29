@@ -51,3 +51,7 @@ idea-*.3 (2)
 Macs Tortas.zip
 test_output.txt
 *.zip
+
+# Configuración local de OpenCode (puede contener tokens)
+opencode.json
+opencode.jsonc
