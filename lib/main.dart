@@ -8,6 +8,7 @@ import 'core/constants/app_constants.dart';
 import 'core/router/router.dart';
 import 'core/theme/theme.dart';
 import 'features/auth/providers/auth_provider.dart';
+import 'features/auth/providers/debug_role_provider.dart';
 import 'firebase_options.dart';
 
 Future<void> main() async {
@@ -69,7 +70,9 @@ class DebugRoleToggleBtn extends ConsumerWidget {
       return const SizedBox.shrink();
     }
 
-    final isParent = authState.role == 'parent';
+    final debugRole = ref.watch(debugRoleProvider);
+    final effectiveRole = debugRole ?? authState.user?.role ?? 'parent';
+    final isParent = effectiveRole == 'parent';
 
     return Material(
       type: MaterialType.transparency,
@@ -88,7 +91,8 @@ class DebugRoleToggleBtn extends ConsumerWidget {
         ),
         child: InkWell(
           onTap: () {
-            ref.read(authProvider.notifier).toggleRole();
+            final nextRole = isParent ? 'teacher' : 'parent';
+            ref.read(debugRoleProvider.notifier).state = nextRole;
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(
@@ -102,7 +106,8 @@ class DebugRoleToggleBtn extends ConsumerWidget {
           },
           borderRadius: BorderRadius.circular(30),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 8.0),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 14.0, vertical: 8.0),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [

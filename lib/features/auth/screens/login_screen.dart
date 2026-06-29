@@ -6,11 +6,17 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/theme.dart';
 import '../providers/auth_provider.dart';
 
-class LoginScreen extends ConsumerWidget {
+class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends ConsumerState<LoginScreen> {
+  @override
+  Widget build(BuildContext context) {
+    final authState = ref.watch(authProvider);
     final size = MediaQuery.of(context).size;
     final topPadding = MediaQuery.of(context).padding.top;
     final bottomPadding = MediaQuery.of(context).padding.bottom;
@@ -155,9 +161,11 @@ class LoginScreen extends ConsumerWidget {
                               ],
                             ),
                             child: OutlinedButton(
-                              onPressed: () {
-                                ref.read(authProvider.notifier).login();
-                              },
+                              onPressed: authState.isLoading
+                                  ? null
+                                  : () => ref
+                                      .read(authProvider.notifier)
+                                      .signInWithGoogle(),
                               style: OutlinedButton.styleFrom(
                                 backgroundColor: Colors.white,
                                 foregroundColor: AppTheme.textPrimaryColor,
@@ -168,25 +176,57 @@ class LoginScreen extends ConsumerWidget {
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
-                                padding: const EdgeInsets.symmetric(horizontal: 16),
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 16),
                               ),
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  _buildGoogleIcon(),
-                                  const SizedBox(width: 12),
-                                  Text(
-                                    'Continuar con Google',
-                                    style: GoogleFonts.inter(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w500,
-                                      color: AppTheme.textPrimaryColor,
-                                    ),
-                                  ),
-                                ],
+                                children: authState.isLoading
+                                    ? [
+                                        const SizedBox(
+                                          height: 20,
+                                          width: 20,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Text(
+                                          'Iniciando sesión...',
+                                          style: GoogleFonts.inter(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w500,
+                                            color: AppTheme.textPrimaryColor,
+                                          ),
+                                        ),
+                                      ]
+                                    : [
+                                        _buildGoogleIcon(),
+                                        const SizedBox(width: 12),
+                                        Text(
+                                          'Continuar con Google',
+                                          style: GoogleFonts.inter(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w500,
+                                            color: AppTheme.textPrimaryColor,
+                                          ),
+                                        ),
+                                      ],
                               ),
                             ),
                           ),
+                          if (authState.errorMessage != null) ...[
+                            const SizedBox(height: 16),
+                            Text(
+                              authState.errorMessage!,
+                              textAlign: TextAlign.center,
+                              style: GoogleFonts.inter(
+                                fontSize: 13,
+                                color: Colors.red,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
                           const SizedBox(height: 24),
                           
                           // Help link

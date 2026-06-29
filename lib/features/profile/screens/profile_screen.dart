@@ -23,7 +23,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
     final String displayName = user?.name ?? 'Usuario';
     final String displayEmail = user?.email ?? '';
-    final String role = authState.role == 'teacher' ? 'Docente' : 'Tutor';
+    final String role = authState.user?.role == 'teacher' ? 'Docente' : 'Tutor';
 
     // Initials from name
     final List<String> parts = displayName.trim().split(' ');
@@ -180,7 +180,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   ),
                 ),
                 onTap: () {
-                  ref.read(authProvider.notifier).logout();
+                  ref.read(authProvider.notifier).signOut();
                 },
               ),
             ],

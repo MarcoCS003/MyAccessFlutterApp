@@ -93,5 +93,28 @@ flutter build ipa --release
 ## Notas importantes
 
 - Este proyecto usa **Firebase Auth + Google Sign-In**. En iOS se requiere configurar el `CFBundleURLTypes` en `Info.plist` cuando se implemente la Fase 3 (Auth).
+### Configuración de Google Sign-In en iOS
+
+El `GoogleService-Info.plist` generado no incluye el `CLIENT_ID` de OAuth necesario para Google Sign-In. Antes de correr en iOS:
+
+1. Ve a Firebase Console → Project settings → General → iOS app.
+2. Descarga de nuevo `GoogleService-Info.plist`.
+3. Abre el archivo y busca la clave `REVERSED_CLIENT_ID` (formato: `com.googleusercontent.apps.XXXXXXXX`).
+4. Copia ese valor y reemplaza `REPLACE_WITH_CLIENT_ID` en `ios/Runner/Info.plist`:
+
+```xml
+<key>CFBundleURLTypes</key>
+<array>
+  <dict>
+    <key>CFBundleTypeRole</key>
+    <string>Editor</string>
+    <key>CFBundleURLSchemes</key>
+    <array>
+      <string>com.googleusercontent.apps.XXXXXXXX</string>
+    </array>
+  </dict>
+</array>
+```
+
 - La configuración de Firebase ya está generada (`lib/firebase_options.dart` y `GoogleService-Info.plist`). No ejecutar `flutterfire configure` nuevamente salvo que se cambie el proyecto Firebase.
 - Para pruebas rápidas usa el simulador; para Google Sign-In real se necesita un dispositivo físico con una cuenta de Google válida.

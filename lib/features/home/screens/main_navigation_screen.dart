@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cliente_flutter_myaccess/core/theme/theme.dart';
 import 'package:cliente_flutter_myaccess/features/auth/providers/auth_provider.dart';
+import 'package:cliente_flutter_myaccess/features/auth/providers/debug_role_provider.dart';
 import 'package:cliente_flutter_myaccess/features/padres/screens/home_padre_screen.dart';
 import 'package:cliente_flutter_myaccess/features/padres/screens/child_qr_screen.dart';
 import 'package:cliente_flutter_myaccess/features/padres/providers/children_provider.dart';
@@ -25,7 +26,9 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
-    final isTeacher = authState.role == 'teacher';
+    final debugRole = ref.watch(debugRoleProvider);
+    final effectiveRole = debugRole ?? authState.user?.role ?? 'parent';
+    final isTeacher = effectiveRole == 'teacher';
 
     // Tab QR para padres: lista de selección de hijo → ChildQrScreen
     Widget parentQrTab() {

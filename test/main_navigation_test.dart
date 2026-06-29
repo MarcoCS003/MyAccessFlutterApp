@@ -7,6 +7,10 @@ import 'package:cliente_flutter_myaccess/features/home/screens/main_navigation_s
 import 'package:cliente_flutter_myaccess/features/padres/screens/home_padre_screen.dart';
 import 'package:cliente_flutter_myaccess/features/maestros/screens/home_maestro_screen.dart';
 import 'package:cliente_flutter_myaccess/features/auth/providers/auth_provider.dart';
+import 'package:cliente_flutter_myaccess/features/auth/models/auth_state.dart';
+import 'package:cliente_flutter_myaccess/features/auth/models/user.dart';
+
+import 'mocks/auth_mocks.dart';
 
 class MockHttpOverrides extends HttpOverrides {
   @override
@@ -86,12 +90,6 @@ final List<int> _transparentImage = [
   0x01, 0x00, 0x01, 0x00, 0x00, 0x02, 0x02, 0x44, 0x01, 0x00, 0x3b
 ];
 
-class MockAuthNotifier extends AuthNotifier {
-  MockAuthNotifier(AuthState initialState) {
-    state = initialState;
-  }
-}
-
 void main() {
   setUpAll(() {
     HttpOverrides.global = MockHttpOverrides();
@@ -99,8 +97,23 @@ void main() {
 
   testWidgets('MainNavigationScreen debe mostrar BottomNavigationBar', (tester) async {
     await tester.pumpWidget(
-      const ProviderScope(
-        child: MaterialApp(
+      ProviderScope(
+        overrides: [
+          authProvider.overrideWith(
+            (ref) => MockAuthNotifier(
+              AuthState(
+                status: AuthStatus.authenticated,
+                user: User(
+                  id: 1,
+                  name: 'Juan Perez',
+                  email: 'juan@ijl.mx',
+                  role: 'parent',
+                ),
+              ),
+            ),
+          ),
+        ],
+        child: const MaterialApp(
           home: MainNavigationScreen(),
         ),
       ),
@@ -109,10 +122,14 @@ void main() {
   });
 
   testWidgets('MainNavigationScreen en rol Padre muestra HomePadreScreen', (tester) async {
-    const parentState = AuthState(
-      isAuthenticated: true,
-      role: 'parent',
-      user: MockUser(name: 'Juan Perez', email: 'juan@ijl.mx', photoUrl: ''),
+    final parentState = AuthState(
+      status: AuthStatus.authenticated,
+      user: User(
+        id: 1,
+        name: 'Juan Perez',
+        email: 'juan@ijl.mx',
+        role: 'parent',
+      ),
     );
 
     await tester.pumpWidget(
@@ -130,10 +147,14 @@ void main() {
   });
 
   testWidgets('MainNavigationScreen en rol Docente muestra HomeMaestroScreen', (tester) async {
-    const teacherState = AuthState(
-      isAuthenticated: true,
-      role: 'teacher',
-      user: MockUser(name: 'Prof. Carlos', email: 'carlos@ijl.mx', photoUrl: ''),
+    final teacherState = AuthState(
+      status: AuthStatus.authenticated,
+      user: User(
+        id: 2,
+        name: 'Prof. Carlos',
+        email: 'carlos@ijl.mx',
+        role: 'teacher',
+      ),
     );
 
     await tester.pumpWidget(
