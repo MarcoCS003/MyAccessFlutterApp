@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+/// Preferencias de la aplicación persistidas localmente en Hive.
 class AppSettings {
   final bool notificationsEnabled;
   final ThemeMode themeMode;
@@ -28,8 +29,9 @@ class AppSettings {
 
   factory AppSettings.fromJson(Map<String, dynamic> json) {
     return AppSettings(
-      notificationsEnabled: json['notificationsEnabled'] as bool? ?? true,
-      themeMode: ThemeMode.values[json['themeMode'] as int? ?? 0],
+      notificationsEnabled: json['notificationsEnabled'] ?? true,
+      themeMode: ThemeMode
+          .values[(json['themeMode'] ?? 0) as int],
     );
   }
 }

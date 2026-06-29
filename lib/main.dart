@@ -12,6 +12,7 @@ import 'features/auth/providers/auth_provider.dart';
 import 'features/auth/providers/debug_role_provider.dart';
 import 'features/notifications/models/notification_item.dart';
 import 'features/notifications/providers/notification_provider.dart';
+import 'features/profile/providers/profile_provider.dart';
 import 'firebase_options.dart';
 
 @pragma('vm:entry-point')
@@ -97,10 +98,15 @@ class _MyAppState extends ConsumerState<MyApp> {
   @override
   Widget build(BuildContext context) {
     final router = ref.watch(routerProvider);
+    final themeMode = ref.watch(
+      profileProvider.select((p) => p.settings.themeMode),
+    );
 
     return MaterialApp.router(
       title: 'MyAccess IJL',
       theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: themeMode,
       routerConfig: router,
       debugShowCheckedModeBanner: false,
       builder: (context, child) {
