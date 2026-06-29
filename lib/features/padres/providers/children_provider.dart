@@ -1,191 +1,129 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 
-class TimelineEvent {
-  final String id;
-  final String title;
-  final String time;
-  final String date;
-  final String description;
-  final String type; // 'entry', 'exit', 'alert'
+import '../../../core/constants/app_constants.dart';
+import '../../../core/errors/failures.dart';
+import '../../../services/api_service.dart';
+import '../models/child.dart';
+import '../models/timeline_event.dart';
 
-  const TimelineEvent({
-    required this.id,
-    required this.title,
-    required this.time,
-    required this.date,
-    required this.description,
-    required this.type,
-  });
-}
-
-class Child {
-  final String id;
-  final String name;
-  final String grade;
-  final String group;
-  final String avatarUrl;
-  final String status; // 'inside' or 'outside'
-  final String lastEventText;
-  final List<TimelineEvent> events;
-
-  const Child({
-    required this.id,
-    required this.name,
-    required this.grade,
-    required this.group,
-    required this.avatarUrl,
-    required this.status,
-    required this.lastEventText,
-    required this.events,
-  });
-
-  Child copyWith({
-    String? id,
-    String? name,
-    String? grade,
-    String? group,
-    String? avatarUrl,
-    String? status,
-    String? lastEventText,
-    List<TimelineEvent>? events,
-  }) {
-    return Child(
-      id: id ?? this.id,
-      name: name ?? this.name,
-      grade: grade ?? this.grade,
-      group: group ?? this.group,
-      avatarUrl: avatarUrl ?? this.avatarUrl,
-      status: status ?? this.status,
-      lastEventText: lastEventText ?? this.lastEventText,
-      events: events ?? this.events,
-    );
-  }
-}
-
-class ChildrenNotifier extends StateNotifier<List<Child>> {
-  ChildrenNotifier()
-      : super([
-          const Child(
-            id: '1',
-            name: 'Mateo Pérez',
-            grade: '4º Primaria',
-            group: 'A',
-            avatarUrl: 'https://images.unsplash.com/photo-1503919545889-aef636e10ad4?auto=format&fit=crop&w=150&q=80',
-            status: 'inside',
-            lastEventText: 'Entrada registrada a las 07:30 AM',
-            events: [
-              TimelineEvent(
-                id: 'e1',
-                title: 'Entrada Registrada',
-                time: '07:30 AM',
-                date: 'Hoy, 05 Jun',
-                description: 'Acceso concedido por Torniquete Principal',
-                type: 'entry',
-              ),
-              TimelineEvent(
-                id: 'e2',
-                title: 'Salida Registrada',
-                time: '02:00 PM',
-                date: 'Ayer, 04 Jun',
-                description: 'Salida autorizada por Puerta A',
-                type: 'exit',
-              ),
-              TimelineEvent(
-                id: 'e3',
-                title: 'Entrada Registrada',
-                time: '07:25 AM',
-                date: 'Ayer, 04 Jun',
-                description: 'Acceso concedido por Torniquete Principal',
-                type: 'entry',
-              ),
-            ],
-          ),
-          const Child(
-            id: '2',
-            name: 'Sofía Pérez',
-            grade: '1º Secundaria',
-            group: 'B',
-            avatarUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=150&q=80',
-            status: 'outside',
-            lastEventText: 'Salida registrada a las 02:05 PM (Ayer)',
-            events: [
-              TimelineEvent(
-                id: 'e4',
-                title: 'Salida Registrada',
-                time: '02:05 PM',
-                date: 'Ayer, 04 Jun',
-                description: 'Salida autorizada por Puerta Principal',
-                type: 'exit',
-              ),
-              TimelineEvent(
-                id: 'e5',
-                title: 'Entrada Registrada',
-                time: '07:15 AM',
-                date: 'Ayer, 04 Jun',
-                description: 'Acceso concedido por Torniquete Secundario',
-                type: 'entry',
-              ),
-              TimelineEvent(
-                id: 'e6',
-                title: 'Retardo Justificado',
-                time: '07:45 AM',
-                date: 'Mié, 03 Jun',
-                description: 'Llegada tarde con justificante médico',
-                type: 'alert',
-              ),
-            ],
-          ),
-        ]);
-
-  void linkChildManually(String code) {
-    final newId = (state.length + 1).toString();
-    final newChild = Child(
-      id: newId,
-      name: 'Alumno ($code)',
-      grade: 'Por definir',
-      group: '-',
-      avatarUrl: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=150&q=80',
-      status: 'outside',
-      lastEventText: 'Vinculado con código: $code',
-      events: [
-        const TimelineEvent(
-          id: 'init',
-          title: 'Vínculo Exitoso',
-          time: 'Ahora',
-          date: 'Hoy',
-          description: 'Estudiante vinculado mediante código manual',
-          type: 'alert',
-        ),
-      ],
-    );
-    state = [...state, newChild];
-  }
-
-  void addChild(String name, String grade, String group) {
-    final newId = (state.length + 1).toString();
-    final newChild = Child(
-      id: newId,
-      name: name,
-      grade: grade,
-      group: group,
-      avatarUrl: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=150&q=80',
-      status: 'outside',
-      lastEventText: 'Vinculado exitosamente hoy',
-      events: [
-        const TimelineEvent(
-          id: 'init',
-          title: 'Vínculo Exitoso',
-          time: 'Ahora',
-          date: 'Hoy',
-          description: 'Estudiante vinculado a la cuenta del tutor',
-          type: 'alert',
-        ),
-      ],
-    );
-    state = [...state, newChild];
-  }
-}
-
-final childrenProvider = StateNotifierProvider<ChildrenNotifier, List<Child>>((ref) {
+final childrenProvider = StateNotifierProvider<ChildrenNotifier, AsyncValue<List<Child>>>((ref) {
   return ChildrenNotifier();
 });
+
+final childTimelineProvider = FutureProvider.family<List<TimelineEvent>, int>((ref, childId) async {
+  final apiService = ApiService();
+  final response = await apiService.get('/students/$childId/attendances');
+  final data = response as Map<String, dynamic>;
+  final attendances = data['attendances'] as List<dynamic>? ?? [];
+  return attendances
+      .map((e) => TimelineEvent.fromJson(e as Map<String, dynamic>))
+      .toList();
+});
+
+/// Combina los timelines de todos los hijos vinculados para mostrar la
+/// actividad reciente en el home del padre.
+final recentActivityProvider =
+    FutureProvider<List<(TimelineEvent event, String childName)>>((ref) async {
+  final childrenAsync = ref.watch(childrenProvider);
+  final children = childrenAsync.valueOrNull ?? [];
+  if (children.isEmpty) return [];
+
+  final timelines = await Future.wait(
+    children.map((child) async {
+      final events = await ref.watch(childTimelineProvider(child.id).future);
+      return events.map((e) => (e, child.name)).toList();
+    }),
+  );
+
+  final allEvents = timelines.expand((events) => events).toList();
+  allEvents.sort((a, b) => b.$1.recordedAt.compareTo(a.$1.recordedAt));
+  return allEvents.take(10).toList();
+});
+
+class ChildrenNotifier extends StateNotifier<AsyncValue<List<Child>>> {
+  ChildrenNotifier({ApiService? apiService, bool skipInitialLoad = false})
+      : _apiService = apiService ?? ApiService(),
+        super(const AsyncValue.loading()) {
+    if (!skipInitialLoad) {
+      loadChildren();
+    }
+  }
+
+  final ApiService _apiService;
+
+  Future<void> loadChildren() async {
+    state = const AsyncValue.loading();
+
+    try {
+      final response = await _apiService.get('/user/students');
+      final data = response as Map<String, dynamic>;
+      final students = data['students'] as List<dynamic>? ?? [];
+      final children = students
+          .map((e) => Child.fromJson(e as Map<String, dynamic>))
+          .toList();
+
+      await _saveToHive(children);
+      state = AsyncValue.data(children);
+    } catch (e) {
+      final cached = await _loadFromHive();
+      if (cached.isNotEmpty) {
+        state = AsyncValue.data(cached);
+      } else if (e is Failure) {
+        state = AsyncValue.error(e, StackTrace.current);
+      } else {
+        state = AsyncValue.error(
+          ServerFailure('Error al cargar hijos: ${e.toString()}'),
+          StackTrace.current,
+        );
+      }
+    }
+  }
+
+  Future<void> linkChild(String code) async {
+    final previousState = state;
+
+    try {
+      final response = await _apiService.post(
+        '/vincular-alumno',
+        data: {'codigo': code},
+      );
+      final data = response as Map<String, dynamic>;
+      final newChild = Child.fromJson(data['student'] as Map<String, dynamic>);
+
+      final current = state.value ?? [];
+      final updated = [...current, newChild];
+      state = AsyncValue.data(updated);
+      await _saveToHive(updated);
+    } catch (e) {
+      state = previousState;
+      if (e is Failure) {
+        rethrow;
+      }
+      throw ServerFailure('Error al vincular alumno: ${e.toString()}');
+    }
+  }
+
+  Future<void> _saveToHive(List<Child> children) async {
+    try {
+      final box = Hive.box(AppConstants.childrenBox);
+      await box.put('items', children.map((c) => c.toJson()).toList());
+    } catch (e) {
+      debugPrint('Error saving children to Hive: $e');
+    }
+  }
+
+  Future<List<Child>> _loadFromHive() async {
+    try {
+      final box = Hive.box(AppConstants.childrenBox);
+      final items = box.get('items', defaultValue: <Map<dynamic, dynamic>>[]);
+      return (items as List)
+          .map((e) => Child.fromJson(Map<String, dynamic>.from(e)))
+          .toList();
+    } catch (e) {
+      debugPrint('Error loading children from Hive: $e');
+      return [];
+    }
+  }
+}

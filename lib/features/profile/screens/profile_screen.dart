@@ -218,7 +218,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       trailing: Switch.adaptive(
         value: value,
         onChanged: onChanged,
-        activeColor: AppTheme.primaryColor,
+        activeThumbColor: AppTheme.primaryColor,
       ),
     );
   }

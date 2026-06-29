@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
+
+import '../../../core/errors/failures.dart';
 import '../../../core/theme/theme.dart';
 import '../providers/children_provider.dart';
 
@@ -15,6 +19,8 @@ class _LinkChildScreenState extends ConsumerState<LinkChildScreen>
     with SingleTickerProviderStateMixin {
   final TextEditingController _codeController = TextEditingController();
   bool _isManualTab = false;
+  bool _isLoading = false;
+  String? _errorMessage;
   late AnimationController _animationController;
 
   @override
@@ -33,47 +39,83 @@ class _LinkChildScreenState extends ConsumerState<LinkChildScreen>
     super.dispose();
   }
 
+  Future<void> _linkChild(String code) async {
+    if (code.trim().isEmpty) return;
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      await ref.read(childrenProvider.notifier).linkChild(code.trim());
+      if (mounted) {
+        context.pop();
+      }
+    } on Failure catch (e) {
+      setState(() => _errorMessage = e.message);
+    } catch (e) {
+      setState(() => _errorMessage = 'Error al vincular alumno');
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  void _onQrDetected(BarcodeCapture capture) {
+    final barcodes = capture.barcodes;
+    if (barcodes.isEmpty) return;
+
+    final code = barcodes.first.rawValue;
+    if (code != null && code.isNotEmpty) {
+      _linkChild(code);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Vincular Hijo'),
+        backgroundColor: AppTheme.primaryColor,
+        foregroundColor: Colors.white,
       ),
       body: Column(
         children: [
-          // Top 60% - Área de Escáner de Cámara
           Expanded(
             flex: 6,
             child: Stack(
               children: [
-                // Simulación de vista previa de cámara
-                Container(
-                  color: Colors.black87,
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.camera_alt_outlined,
-                            color: Colors.white24, size: 64),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Escáner Activo',
-                          style: GoogleFonts.inter(
-                              color: Colors.white38, fontSize: 14),
-                        ),
-                      ],
+                if (!_isManualTab)
+                  MobileScanner(
+                    onDetect: _onQrDetected,
+                  ),
+                if (_isManualTab)
+                  Container(
+                    color: Colors.black87,
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.keyboard_alt_outlined,
+                              color: Colors.white24, size: 64),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Modo manual activado',
+                            style: GoogleFonts.inter(
+                                color: Colors.white38, fontSize: 14),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-
-                // Overlay con marco central de escaneo
                 if (!_isManualTab)
                   LayoutBuilder(
                     builder: (context, constraints) {
                       final size = constraints.maxWidth * 0.6;
                       return Stack(
                         children: [
-                          // Caja de Escaneo Animada
                           Center(
                             child: Container(
                               width: size,
@@ -86,7 +128,6 @@ class _LinkChildScreenState extends ConsumerState<LinkChildScreen>
                               ),
                             ),
                           ),
-                          // Línea Láser Animada
                           AnimatedBuilder(
                             animation: _animationController,
                             builder: (context, child) {
@@ -127,8 +168,6 @@ class _LinkChildScreenState extends ConsumerState<LinkChildScreen>
               ],
             ),
           ),
-
-          // Bottom 40% - Tarjeta blanca con Tab Selector
           Expanded(
             flex: 4,
             child: Container(
@@ -152,7 +191,6 @@ class _LinkChildScreenState extends ConsumerState<LinkChildScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Tab selector
                     Row(
                       children: [
                         Expanded(
@@ -210,49 +248,67 @@ class _LinkChildScreenState extends ConsumerState<LinkChildScreen>
                       ],
                     ),
                     const SizedBox(height: 24),
-
-                    // Contenido según Tab
                     Expanded(
                       child: _isManualTab
-                          ? Row(
+                          ? Column(
                               children: [
-                                Expanded(
-                                  child: TextField(
-                                    controller: _codeController,
-                                    decoration: InputDecoration(
-                                      labelText: 'Código del alumno',
-                                      hintText: 'Ej: IJL-12345',
-                                      border: OutlineInputBorder(
-                                        borderRadius:
-                                            BorderRadius.circular(12),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: TextField(
+                                        controller: _codeController,
+                                        decoration: InputDecoration(
+                                          labelText: 'Código del alumno',
+                                          hintText: 'Ej: IJL-12345',
+                                          border: OutlineInputBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(12),
+                                          ),
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                ElevatedButton(
-                                  onPressed: () {
-                                    if (_codeController.text.isNotEmpty) {
-                                      ref
-                                          .read(childrenProvider.notifier)
-                                          .linkChildManually(
-                                              _codeController.text);
-                                      Navigator.pop(context);
-                                    }
-                                  },
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor:
-                                        AppTheme.themeNavyColor,
-                                    foregroundColor: Colors.white,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius:
-                                          BorderRadius.circular(12),
+                                    const SizedBox(width: 12),
+                                    ElevatedButton(
+                                      onPressed: _isLoading
+                                          ? null
+                                          : () => _linkChild(
+                                              _codeController.text),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor:
+                                            AppTheme.themeNavyColor,
+                                        foregroundColor: Colors.white,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                        ),
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 24, vertical: 16),
+                                      ),
+                                      child: _isLoading
+                                          ? const SizedBox(
+                                              width: 16,
+                                              height: 16,
+                                              child:
+                                                  CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                color: Colors.white,
+                                              ),
+                                            )
+                                          : const Text('Buscar'),
                                     ),
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 24, vertical: 16),
-                                  ),
-                                  child: const Text('Buscar'),
+                                  ],
                                 ),
+                                if (_errorMessage != null) ...[
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    _errorMessage!,
+                                    style: GoogleFonts.inter(
+                                      color: AppTheme.errorColor,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
                               ],
                             )
                           : Row(

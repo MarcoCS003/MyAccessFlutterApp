@@ -5,6 +5,7 @@ import '../../features/auth/providers/auth_provider.dart';
 import '../../features/auth/screens/login_screen.dart';
 import '../../features/padres/screens/link_child_screen.dart';
 import '../../features/padres/screens/child_detail_screen.dart';
+import '../../features/padres/screens/child_qr_screen.dart';
 import '../../features/maestros/screens/teacher_qr_screen.dart';
 import '../../features/notifications/screens/notifications_screen.dart';
 import '../../features/home/screens/main_navigation_screen.dart';
@@ -51,6 +52,15 @@ final routerProvider = Provider<GoRouter>((ref) {
           final childId = state.pathParameters['id'] ?? '';
           return ChildDetailScreen(childId: childId);
         },
+        routes: [
+          GoRoute(
+            path: 'qr',
+            builder: (context, state) {
+              final childId = state.pathParameters['id'] ?? '';
+              return ChildQrScreen(childId: childId);
+            },
+          ),
+        ],
       ),
       GoRoute(
         path: '/teacher-home',

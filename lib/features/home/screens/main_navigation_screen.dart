@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cliente_flutter_myaccess/core/theme/theme.dart';
 import 'package:cliente_flutter_myaccess/features/auth/providers/auth_provider.dart';
 import 'package:cliente_flutter_myaccess/features/auth/providers/debug_role_provider.dart';
 import 'package:cliente_flutter_myaccess/features/padres/screens/home_padre_screen.dart';
-import 'package:cliente_flutter_myaccess/features/padres/screens/child_qr_screen.dart';
 import 'package:cliente_flutter_myaccess/features/padres/providers/children_provider.dart';
 import 'package:cliente_flutter_myaccess/features/maestros/screens/home_maestro_screen.dart';
 import 'package:cliente_flutter_myaccess/features/maestros/screens/teacher_qr_screen.dart';
@@ -34,7 +34,7 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
 
     // Tab QR para padres: lista de selección de hijo → ChildQrScreen
     Widget parentQrTab() {
-      final children = ref.watch(childrenProvider);
+      final childrenAsync = ref.watch(childrenProvider);
       return Scaffold(
         appBar: AppBar(
           automaticallyImplyLeading: false,
@@ -47,95 +47,93 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
           elevation: 0,
         ),
         backgroundColor: AppTheme.bgLightColor,
-        body: children.isEmpty
-            ? Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
+        body: childrenAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => Center(child: Text('Error: $e')),
+          data: (children) => children.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.qr_code_outlined,
+                          size: 80, color: AppTheme.borderLightColor),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Sin hijos vinculados',
+                        style: GoogleFonts.poppins(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textPrimaryColor,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Vincula un hijo desde la pantalla de inicio.',
+                        style: GoogleFonts.inter(
+                          fontSize: 13,
+                          color: AppTheme.textSecondaryColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.qr_code_outlined,
-                        size: 80, color: AppTheme.borderLightColor),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Sin hijos vinculados',
-                      style: GoogleFonts.poppins(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.textPrimaryColor,
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
+                      child: Text(
+                        'Selecciona un hijo para ver su QR',
+                        style: GoogleFonts.inter(
+                          fontSize: 13,
+                          color: AppTheme.textSecondaryColor,
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Vincula un hijo desde la pantalla de inicio.',
-                      style: GoogleFonts.inter(
-                        fontSize: 13,
-                        color: AppTheme.textSecondaryColor,
+                    Expanded(
+                      child: ListView.builder(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        itemCount: children.length,
+                        itemBuilder: (context, index) {
+                          final child = children[index];
+                          return Card(
+                            color: Colors.white,
+                            margin: const EdgeInsets.only(bottom: 12),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16)),
+                            elevation: 0,
+                            child: ListTile(
+                              contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 6),
+                              leading: CircleAvatar(
+                                backgroundColor: AppTheme.lightGoldColor,
+                                child: const Icon(Icons.qr_code,
+                                    color: AppTheme.accentGoldColor),
+                              ),
+                              title: Text(
+                                child.name,
+                                style: GoogleFonts.inter(
+                                    fontWeight: FontWeight.bold,
+                                    color: AppTheme.textPrimaryColor),
+                              ),
+                              subtitle: Text(
+                                '${child.grade} - ${child.group}',
+                                style: GoogleFonts.inter(
+                                    fontSize: 13,
+                                    color: AppTheme.textSecondaryColor),
+                              ),
+                              trailing: const Icon(Icons.chevron_right,
+                                  color: AppTheme.textSecondaryColor),
+                              onTap: () =>
+                                  context.push('/child/${child.id}/qr'),
+                            ),
+                          );
+                        },
                       ),
                     ),
                   ],
                 ),
-              )
-            : Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
-                    child: Text(
-                      'Selecciona un hijo para ver su QR',
-                      style: GoogleFonts.inter(
-                        fontSize: 13,
-                        color: AppTheme.textSecondaryColor,
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      itemCount: children.length,
-                      itemBuilder: (context, index) {
-                        final child = children[index];
-                        return Card(
-                          color: Colors.white,
-                          margin: const EdgeInsets.only(bottom: 12),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16)),
-                          elevation: 0,
-                          child: ListTile(
-                            contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 6),
-                            leading: CircleAvatar(
-                              backgroundColor: AppTheme.lightGoldColor,
-                              child: const Icon(Icons.qr_code,
-                                  color: AppTheme.accentGoldColor),
-                            ),
-                            title: Text(
-                              child.name,
-                              style: GoogleFonts.inter(
-                                  fontWeight: FontWeight.bold,
-                                  color: AppTheme.textPrimaryColor),
-                            ),
-                            subtitle: Text(
-                              '${child.grade} - ${child.group}',
-                              style: GoogleFonts.inter(
-                                  fontSize: 13,
-                                  color: AppTheme.textSecondaryColor),
-                            ),
-                            trailing: const Icon(Icons.chevron_right,
-                                color: AppTheme.textSecondaryColor),
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => ChildQrScreen(child: child),
-                                ),
-                              );
-                            },
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ),
+        ),
       );
     }
 

@@ -1,18 +1,65 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../../core/theme/theme.dart';
+import '../models/child.dart';
 import '../providers/children_provider.dart';
 
-class ChildQrScreen extends StatelessWidget {
+class ChildQrScreen extends ConsumerWidget {
+  final String childId;
+
+  const ChildQrScreen({super.key, required this.childId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final childrenAsync = ref.watch(childrenProvider);
+
+    return childrenAsync.when(
+      loading: () => const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      ),
+      error: (e, _) => Scaffold(
+        appBar: AppBar(title: const Text('Código QR')),
+        body: Center(child: Text('Error: $e')),
+      ),
+      data: (children) {
+        final id = int.tryParse(childId);
+        final child = children.firstWhere(
+          (c) => c.id == id,
+          orElse: () => Child(
+            id: -1,
+            name: 'Estudiante no encontrado',
+            grade: '',
+            group: '',
+          ),
+        );
+
+        if (child.id == -1) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('Código QR')),
+            body: const Center(child: Text('Estudiante no encontrado.')),
+          );
+        }
+
+        return _ChildQrContent(child: child);
+      },
+    );
+  }
+}
+
+class _ChildQrContent extends StatelessWidget {
   final Child child;
 
-  const ChildQrScreen({super.key, required this.child});
+  const _ChildQrContent({required this.child});
 
   @override
   Widget build(BuildContext context) {
     final firstName = child.name.split(' ').first;
+    // El QR codifica el identificador único del estudiante. El lector del
+    // colegio escaneará este valor para registrar entradas y salidas.
+    final qrPayload = child.id.toString();
 
     return Scaffold(
       backgroundColor: AppTheme.bgLightColor,
@@ -37,10 +84,10 @@ class ChildQrScreen extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // ── QR Card ─────────────────────────────────────────────────
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
+                padding:
+                    const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(24),
@@ -54,9 +101,8 @@ class ChildQrScreen extends StatelessWidget {
                 ),
                 child: Column(
                   children: [
-                    // QR Code
                     QrImageView(
-                      data: child.id,
+                      data: qrPayload,
                       version: QrVersions.auto,
                       size: 200.0,
                       backgroundColor: Colors.white,
@@ -70,8 +116,6 @@ class ChildQrScreen extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 24),
-
-                    // Child name
                     Text(
                       child.name,
                       style: GoogleFonts.poppins(
@@ -82,8 +126,6 @@ class ChildQrScreen extends StatelessWidget {
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 6),
-
-                    // Grade & Group
                     Text(
                       '${child.grade} • Grupo ${child.group}',
                       style: GoogleFonts.inter(
@@ -93,8 +135,6 @@ class ChildQrScreen extends StatelessWidget {
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 16),
-
-                    // Student ID badge
                     Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 14, vertical: 6),
@@ -103,7 +143,7 @@ class ChildQrScreen extends StatelessWidget {
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
-                        'ID: ${child.id}',
+                        'ID: $qrPayload',
                         style: GoogleFonts.inter(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -114,10 +154,7 @@ class ChildQrScreen extends StatelessWidget {
                   ],
                 ),
               ),
-
               const SizedBox(height: 32),
-
-              // ── Warning Row ──────────────────────────────────────────────
               Container(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
