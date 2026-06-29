@@ -2,7 +2,9 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 
+import 'core/constants/app_constants.dart';
 import 'core/router/router.dart';
 import 'core/theme/theme.dart';
 import 'features/auth/providers/auth_provider.dart';
@@ -13,6 +15,12 @@ Future<void> main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  await Hive.initFlutter();
+  await Hive.openBox(AppConstants.authBox);
+  await Hive.openBox(AppConstants.childrenBox);
+  await Hive.openBox(AppConstants.notificationsBox);
+  await Hive.openBox(AppConstants.settingsBox);
+
   runApp(
     const ProviderScope(
       child: MyApp(),
