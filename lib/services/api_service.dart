@@ -13,7 +13,27 @@ class ApiService {
     Dio? dio,
     FlutterSecureStorage? secureStorage,
   })  : _dio = dio ?? _createDio(),
-        _secureStorage = secureStorage ?? const FlutterSecureStorage();
+        _secureStorage = secureStorage ?? const FlutterSecureStorage() {
+    // Solo agregamos el interceptor al Dio interno. Si un Dio es inyectado
+    // (por ejemplo en tests), se asume que el llamador maneja la autenticación.
+    if (dio == null) {
+      _dio.interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) async {
+            if (options.extra['requiresAuth'] != false) {
+              final token = await _secureStorage.read(
+                key: AppConstants.jwtTokenKey,
+              );
+              if (token != null && token.isNotEmpty) {
+                options.headers['Authorization'] = 'Bearer $token';
+              }
+            }
+            handler.next(options);
+          },
+        ),
+      );
+    }
+  }
 
   static Dio _createDio() {
     final dio = Dio(
@@ -39,24 +59,15 @@ class ApiService {
     return dio;
   }
 
-  Future<Dio> _authenticatedDio() async {
-    final token = await _secureStorage.read(key: AppConstants.jwtTokenKey);
-    final authDio = _dio;
-    if (token != null && token.isNotEmpty) {
-      authDio.options.headers['Authorization'] = 'Bearer $token';
-    }
-    return authDio;
-  }
-
   Future<T> get<T>(
     String path, {
     Map<String, dynamic>? queryParameters,
     bool requiresAuth = true,
   }) async {
-    final client = requiresAuth ? await _authenticatedDio() : _dio;
-    return _handleRequest(() => client.get<T>(
+    return _handleRequest(() => _dio.get<T>(
           path,
           queryParameters: queryParameters,
+          options: Options(extra: {'requiresAuth': requiresAuth}),
         ));
   }
 
@@ -65,8 +76,11 @@ class ApiService {
     dynamic data,
     bool requiresAuth = true,
   }) async {
-    final client = requiresAuth ? await _authenticatedDio() : _dio;
-    return _handleRequest(() => client.post<T>(path, data: data));
+    return _handleRequest(() => _dio.post<T>(
+          path,
+          data: data,
+          options: Options(extra: {'requiresAuth': requiresAuth}),
+        ));
   }
 
   Future<T> delete<T>(
@@ -74,8 +88,11 @@ class ApiService {
     dynamic data,
     bool requiresAuth = true,
   }) async {
-    final client = requiresAuth ? await _authenticatedDio() : _dio;
-    return _handleRequest(() => client.delete<T>(path, data: data));
+    return _handleRequest(() => _dio.delete<T>(
+          path,
+          data: data,
+          options: Options(extra: {'requiresAuth': requiresAuth}),
+        ));
   }
 
   Future<T> _handleRequest<T>(Future<Response<T>> Function() request) async {

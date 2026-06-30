@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
-import '../../../core/errors/failures.dart';
 import '../../../core/theme/theme.dart';
-import '../providers/children_provider.dart';
 
 class LinkChildScreen extends ConsumerStatefulWidget {
   const LinkChildScreen({super.key});
@@ -18,9 +17,10 @@ class LinkChildScreen extends ConsumerStatefulWidget {
 class _LinkChildScreenState extends ConsumerState<LinkChildScreen>
     with SingleTickerProviderStateMixin {
   final TextEditingController _codeController = TextEditingController();
+  final MobileScannerController _scannerController = MobileScannerController();
   bool _isManualTab = false;
-  bool _isLoading = false;
-  String? _errorMessage;
+  String? _lastScannedCode;
+  DateTime? _lastScanTime;
   late AnimationController _animationController;
 
   @override
@@ -34,43 +34,50 @@ class _LinkChildScreenState extends ConsumerState<LinkChildScreen>
 
   @override
   void dispose() {
+    _scannerController.dispose();
     _animationController.dispose();
     _codeController.dispose();
     super.dispose();
   }
 
-  Future<void> _linkChild(String code) async {
-    if (code.trim().isEmpty) return;
-
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
-    try {
-      await ref.read(childrenProvider.notifier).linkChild(code.trim());
-      if (mounted) {
-        context.pop();
-      }
-    } on Failure catch (e) {
-      setState(() => _errorMessage = e.message);
-    } catch (e) {
-      setState(() => _errorMessage = 'Error al vincular alumno');
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
+  /// Extrae solo los dígitos del QR. Si no hay dígitos, devuelve el valor
+  /// original limpio. Esto cubre QR que vengan como URL, JSON o con espacios.
+  String _sanitizeCode(String code) {
+    final trimmed = code.trim();
+    final digits = trimmed.replaceAll(RegExp(r'[^0-9]'), '');
+    return digits.isNotEmpty ? digits : trimmed;
   }
 
   void _onQrDetected(BarcodeCapture capture) {
-    final barcodes = capture.barcodes;
-    if (barcodes.isEmpty) return;
+    final barcode = capture.barcodes.firstOrNull;
+    final rawCode = barcode?.rawValue;
+    if (rawCode == null || rawCode.isEmpty) return;
 
-    final code = barcodes.first.rawValue;
-    if (code != null && code.isNotEmpty) {
-      _linkChild(code);
+    final now = DateTime.now();
+    if (_lastScanTime != null &&
+        now.difference(_lastScanTime!).inSeconds < 3) {
+      return;
     }
+    if (_lastScannedCode == rawCode) return;
+
+    _lastScanTime = now;
+    _lastScannedCode = rawCode;
+
+    debugPrint('[LinkChildScreen] QR detectado: $rawCode');
+    HapticFeedback.lightImpact();
+
+    final code = _sanitizeCode(rawCode);
+    debugPrint('[LinkChildScreen] Código sanitizado: $code');
+
+    if (code.isNotEmpty) {
+      _codeController.text = code;
+      _showConfirmation(code);
+    }
+  }
+
+  void _showConfirmation(String code) {
+    if (code.trim().isEmpty) return;
+    context.push('/link-child/confirm?code=$code');
   }
 
   @override
@@ -89,7 +96,9 @@ class _LinkChildScreenState extends ConsumerState<LinkChildScreen>
               children: [
                 if (!_isManualTab)
                   MobileScanner(
+                    controller: _scannerController,
                     onDetect: _onQrDetected,
+                    fit: BoxFit.cover,
                   ),
                 if (_isManualTab)
                   Container(
@@ -269,10 +278,8 @@ class _LinkChildScreenState extends ConsumerState<LinkChildScreen>
                                     ),
                                     const SizedBox(width: 12),
                                     ElevatedButton(
-                                      onPressed: _isLoading
-                                          ? null
-                                          : () => _linkChild(
-                                              _codeController.text),
+                                      onPressed: () => _showConfirmation(
+                                          _codeController.text),
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor:
                                             AppTheme.themeNavyColor,
@@ -284,47 +291,49 @@ class _LinkChildScreenState extends ConsumerState<LinkChildScreen>
                                         padding: const EdgeInsets.symmetric(
                                             horizontal: 24, vertical: 16),
                                       ),
-                                      child: _isLoading
-                                          ? const SizedBox(
-                                              width: 16,
-                                              height: 16,
-                                              child:
-                                                  CircularProgressIndicator(
-                                                strokeWidth: 2,
-                                                color: Colors.white,
-                                              ),
-                                            )
-                                          : const Text('Buscar'),
+                                      child: const Text('Buscar'),
                                     ),
                                   ],
                                 ),
-                                if (_errorMessage != null) ...[
-                                  const SizedBox(height: 12),
+                              ],
+                            )
+                          : Column(
+                              children: [
+                                Row(
+                                  children: [
+                                    const Icon(Icons.info_outline_rounded,
+                                        color: AppTheme.textSecondaryColor),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        'El código QR se encuentra impreso en la credencial escolar física del estudiante.',
+                                        style: GoogleFonts.inter(
+                                            fontSize: 13,
+                                            color:
+                                                AppTheme.textSecondaryColor),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                if (_lastScannedCode != null) ...[
+                                  const SizedBox(height: 16),
                                   Text(
-                                    _errorMessage!,
+                                    'Último código detectado:',
                                     style: GoogleFonts.inter(
-                                      color: AppTheme.errorColor,
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w500,
+                                      fontSize: 12,
+                                      color: AppTheme.textSecondaryColor,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    _lastScannedCode!,
+                                    style: GoogleFonts.inter(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppTheme.textPrimaryColor,
                                     ),
                                   ),
                                 ],
-                              ],
-                            )
-                          : Row(
-                              children: [
-                                const Icon(Icons.info_outline_rounded,
-                                    color: AppTheme.textSecondaryColor),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    'El código QR se encuentra impreso en la credencial escolar física del estudiante.',
-                                    style: GoogleFonts.inter(
-                                        fontSize: 13,
-                                        color:
-                                            AppTheme.textSecondaryColor),
-                                  ),
-                                ),
                               ],
                             ),
                     ),

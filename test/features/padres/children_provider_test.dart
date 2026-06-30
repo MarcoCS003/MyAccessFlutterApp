@@ -30,8 +30,9 @@ void main() {
 
       when(
         () => mockDio.get(
-          '/user/students',
+          '/user',
           queryParameters: any(named: 'queryParameters'),
+          options: any(named: 'options'),
         ),
       ).thenAnswer(
         (_) async => Response(
@@ -47,7 +48,7 @@ void main() {
             ],
           },
           statusCode: 200,
-          requestOptions: RequestOptions(path: '/user/students'),
+          requestOptions: RequestOptions(path: '/user'),
         ),
       );
 
@@ -57,7 +58,6 @@ void main() {
       );
       final notifier = ChildrenNotifier(
         apiService: apiService,
-        skipInitialLoad: true,
       );
 
       await notifier.loadChildren();
@@ -79,20 +79,37 @@ void main() {
         () => mockDio.post(
           '/vincular-alumno',
           data: any(named: 'data'),
+          options: any(named: 'options'),
+        ),
+      ).thenAnswer(
+        (_) async => Response(
+          data: {'message': 'Alumno vinculado exitosamente'},
+          statusCode: 200,
+          requestOptions: RequestOptions(path: '/vincular-alumno'),
+        ),
+      );
+
+      when(
+        () => mockDio.get(
+          '/user',
+          queryParameters: any(named: 'queryParameters'),
+          options: any(named: 'options'),
         ),
       ).thenAnswer(
         (_) async => Response(
           data: {
-            'student': {
-              'id': 2,
-              'name': 'Ana López',
-              'grade': '2do Primaria',
-              'group': 'B',
-              'status': 'outside',
-            },
+            'students': [
+              {
+                'id': 2,
+                'name': 'Ana López',
+                'grade': '2do Primaria',
+                'group': 'B',
+                'status': 'outside',
+              },
+            ],
           },
           statusCode: 200,
-          requestOptions: RequestOptions(path: '/vincular-alumno'),
+          requestOptions: RequestOptions(path: '/user'),
         ),
       );
 
@@ -102,7 +119,6 @@ void main() {
       );
       final notifier = ChildrenNotifier(
         apiService: apiService,
-        skipInitialLoad: true,
       );
       notifier.state = const AsyncValue.data([]);
 

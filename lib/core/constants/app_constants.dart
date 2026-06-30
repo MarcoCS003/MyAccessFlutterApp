@@ -1,9 +1,12 @@
+import 'api_config.dart';
+
 class AppConstants {
   static const String appName = 'MyAccess IJL';
   static const String appVersion = '1.0.0';
 
-  // Backend Laravel (ajustar según entorno)
-  static const String baseUrl = 'http://localhost:8000/api';
+  // Backend Laravel: apunta a ApiConfig para poder alternar entre
+  // emulador y dispositivo físico sin tocar el resto de la app.
+  static String get baseUrl => ApiConfig.baseUrl;
 
   // Hive boxes
   static const String authBox = 'auth_box';

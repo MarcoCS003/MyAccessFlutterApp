@@ -124,6 +124,47 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
+  Future<void> signInWithEmailPassword(String email, String password) async {
+    try {
+      state = state.copyWith(status: AuthStatus.loading, errorMessage: null);
+
+      final fcmToken = await _firebaseMessaging.getToken();
+
+      final response = await _apiService.post(
+        '/auth/login',
+        data: {
+          'email': email,
+          'password': password,
+          'fcm_token': fcmToken,
+        },
+        requiresAuth: false,
+      ) as Map<String, dynamic>;
+
+      final accessToken = response['access_token'] as String? ??
+          response['token'] as String? ??
+          '';
+      if (accessToken.isEmpty) {
+        throw Exception('El backend no devolvió token de acceso');
+      }
+
+      final user = User.fromJson(response['user'] as Map<String, dynamic>);
+
+      await _persistSession(jwtToken: accessToken, user: user);
+      await _registerFcmToken();
+      _listenToTokenRefresh();
+
+      state = AuthState(
+        status: AuthStatus.authenticated,
+        user: user,
+      );
+    } catch (e) {
+      state = AuthState(
+        status: AuthStatus.error,
+        errorMessage: 'Credenciales incorrectas o error del servidor',
+      );
+    }
+  }
+
   Future<void> signOut() async {
     try {
       await _secureStorage.delete(key: AppConstants.jwtTokenKey);
@@ -178,7 +219,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       await _apiService.post(
         '/update-fcm-token',
-        data: {'fcmToken': fcmToken},
+        data: {'fcm_token': fcmToken},
       );
       debugPrint('FCM token registered successfully');
     } catch (e) {
@@ -191,7 +232,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       try {
         await _apiService.post(
           '/update-fcm-token',
-          data: {'fcmToken': newToken},
+          data: {'fcm_token': newToken},
         );
         debugPrint('FCM token refreshed and registered');
       } catch (e) {

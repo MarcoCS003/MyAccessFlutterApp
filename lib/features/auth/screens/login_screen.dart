@@ -14,6 +14,25 @@ class LoginScreen extends ConsumerStatefulWidget {
 }
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+    await ref.read(authProvider.notifier).signInWithEmailPassword(
+          _emailController.text.trim(),
+          _passwordController.text.trim(),
+        );
+  }
+
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
@@ -147,10 +166,105 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             ),
                           ),
                           const SizedBox(height: 32),
-                          
-                          // Google Button
+
+                          Form(
+                            key: _formKey,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                TextFormField(
+                                  controller: _emailController,
+                                  keyboardType: TextInputType.emailAddress,
+                                  textInputAction: TextInputAction.next,
+                                  enabled: !authState.isLoading,
+                                  decoration: InputDecoration(
+                                    labelText: 'Correo electrónico',
+                                    hintText: 'tutor@ijl.edu.mx',
+                                    prefixIcon: const Icon(Icons.email_outlined),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                  validator: (value) {
+                                    if (value == null || value.trim().isEmpty) {
+                                      return 'Ingresa tu correo';
+                                    }
+                                    if (!value.contains('@')) {
+                                      return 'Correo no válido';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                                const SizedBox(height: 16),
+                                TextFormField(
+                                  controller: _passwordController,
+                                  obscureText: true,
+                                  textInputAction: TextInputAction.done,
+                                  enabled: !authState.isLoading,
+                                  decoration: InputDecoration(
+                                    labelText: 'Contraseña',
+                                    prefixIcon: const Icon(Icons.lock_outline),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                  validator: (value) {
+                                    if (value == null || value.isEmpty) {
+                                      return 'Ingresa tu contraseña';
+                                    }
+                                    return null;
+                                  },
+                                  onFieldSubmitted: (_) => _submit(),
+                                ),
+                                const SizedBox(height: 24),
+                                SizedBox(
+                                  height: 54,
+                                  child: ElevatedButton(
+                                    onPressed:
+                                        authState.isLoading ? null : _submit,
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppTheme.primaryColor,
+                                      foregroundColor: Colors.white,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      textStyle: GoogleFonts.inter(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    child: authState.isLoading
+                                        ? const SizedBox(
+                                            height: 22,
+                                            width: 22,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              color: Colors.white,
+                                            ),
+                                          )
+                                        : const Text('Iniciar sesión'),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (authState.errorMessage != null) ...[
+                            const SizedBox(height: 16),
+                            Text(
+                              authState.errorMessage!,
+                              textAlign: TextAlign.center,
+                              style: GoogleFonts.inter(
+                                fontSize: 13,
+                                color: Colors.red,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 20),
+
+                          // Google fallback for development
                           Container(
-                            height: 56,
+                            height: 48,
                             decoration: BoxDecoration(
                               boxShadow: [
                                 BoxShadow(
@@ -181,52 +295,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               ),
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
-                                children: authState.isLoading
-                                    ? [
-                                        const SizedBox(
-                                          height: 20,
-                                          width: 20,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Text(
-                                          'Iniciando sesión...',
-                                          style: GoogleFonts.inter(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w500,
-                                            color: AppTheme.textPrimaryColor,
-                                          ),
-                                        ),
-                                      ]
-                                    : [
-                                        _buildGoogleIcon(),
-                                        const SizedBox(width: 12),
-                                        Text(
-                                          'Continuar con Google',
-                                          style: GoogleFonts.inter(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w500,
-                                            color: AppTheme.textPrimaryColor,
-                                          ),
-                                        ),
-                                      ],
+                                children: [
+                                  _buildGoogleIcon(),
+                                  const SizedBox(width: 12),
+                                  Text(
+                                    'Google (solo desarrollo)',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                      color: AppTheme.textPrimaryColor,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
-                          if (authState.errorMessage != null) ...[
-                            const SizedBox(height: 16),
-                            Text(
-                              authState.errorMessage!,
-                              textAlign: TextAlign.center,
-                              style: GoogleFonts.inter(
-                                fontSize: 13,
-                                color: Colors.red,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
                           const SizedBox(height: 24),
                           
                           // Help link

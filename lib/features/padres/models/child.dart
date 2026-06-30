@@ -45,7 +45,7 @@ class Child {
     return Child(
       id: json['id'] as int,
       name: json['nombre'] as String? ?? json['name'] as String,
-      grade: json['grado'] as String? ?? json['grade'] as String? ?? '',
+      grade: json['grado'] as String? ?? json['nivel'] as String? ?? json['grade'] as String? ?? '',
       group: json['grupo'] as String? ?? json['group'] as String? ?? '',
       avatar: json['avatar'] as String?,
       status: json['status'] as String? ?? 'outside',

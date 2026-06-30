@@ -7,6 +7,7 @@ import 'package:cliente_flutter_myaccess/features/auth/models/auth_state.dart';
 import 'package:cliente_flutter_myaccess/features/auth/models/user.dart';
 
 import 'mocks/auth_mocks.dart';
+import 'test_helpers.dart';
 
 void main() {
   testWidgets('HomePadreScreen renderiza lista de estudiantes', (tester) async {
@@ -26,6 +27,7 @@ void main() {
               ),
             ),
           ),
+          emptyChildrenProviderOverride,
         ],
         child: const MaterialApp(
           home: Scaffold(body: HomePadreScreen()),

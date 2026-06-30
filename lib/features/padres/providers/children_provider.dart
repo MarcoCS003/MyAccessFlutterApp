@@ -13,13 +13,11 @@ final childrenProvider = StateNotifierProvider<ChildrenNotifier, AsyncValue<List
 });
 
 final childTimelineProvider = FutureProvider.family<List<TimelineEvent>, int>((ref, childId) async {
-  final apiService = ApiService();
-  final response = await apiService.get('/students/$childId/attendances');
-  final data = response as Map<String, dynamic>;
-  final attendances = data['attendances'] as List<dynamic>? ?? [];
-  return attendances
-      .map((e) => TimelineEvent.fromJson(e as Map<String, dynamic>))
-      .toList();
+  // El backend actual no expone un endpoint de asistencias por estudiante.
+  // Se deja como lista vacía para evitar errores 404; cuando exista el
+  // endpoint, reemplazar por la llamada real a
+  // `/students/$childId/attendances`.
+  return <TimelineEvent>[];
 });
 
 /// Combina los timelines de todos los hijos vinculados para mostrar la
@@ -43,12 +41,15 @@ final recentActivityProvider =
 });
 
 class ChildrenNotifier extends StateNotifier<AsyncValue<List<Child>>> {
-  ChildrenNotifier({ApiService? apiService, bool skipInitialLoad = false})
+  ChildrenNotifier({ApiService? apiService})
       : _apiService = apiService ?? ApiService(),
-        super(const AsyncValue.loading()) {
-    if (!skipInitialLoad) {
-      loadChildren();
-    }
+        super(const AsyncValue.loading());
+
+  /// Inicia la carga de hijos. Se llama explícitamente desde
+  /// [MainNavigationScreen] para evitar peticiones automáticas antes de que
+  /// el usuario esté autenticado.
+  void initialize() {
+    loadChildren();
   }
 
   final ApiService _apiService;
@@ -57,7 +58,7 @@ class ChildrenNotifier extends StateNotifier<AsyncValue<List<Child>>> {
     state = const AsyncValue.loading();
 
     try {
-      final response = await _apiService.get('/user/students');
+      final response = await _apiService.get('/user');
       final data = response as Map<String, dynamic>;
       final students = data['students'] as List<dynamic>? ?? [];
       final children = students
@@ -85,17 +86,14 @@ class ChildrenNotifier extends StateNotifier<AsyncValue<List<Child>>> {
     final previousState = state;
 
     try {
-      final response = await _apiService.post(
+      await _apiService.post(
         '/vincular-alumno',
-        data: {'codigo': code},
+        data: {'codigo_alumno': code},
       );
-      final data = response as Map<String, dynamic>;
-      final newChild = Child.fromJson(data['student'] as Map<String, dynamic>);
 
-      final current = state.value ?? [];
-      final updated = [...current, newChild];
-      state = AsyncValue.data(updated);
-      await _saveToHive(updated);
+      // El backend no devuelve el estudiante vinculado, así que refrescamos
+      // la lista completa desde /api/user para obtener los datos actualizados.
+      await loadChildren();
     } catch (e) {
       state = previousState;
       if (e is Failure) {

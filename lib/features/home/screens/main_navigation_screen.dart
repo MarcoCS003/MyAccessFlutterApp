@@ -25,6 +25,16 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
   int _selectedIndex = 0;
 
   @override
+  void initState() {
+    super.initState();
+    // Carga los hijos una vez que la navegación principal está montada y
+    // el estado de autenticación ya debería estar resuelto.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(childrenProvider.notifier).initialize();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
     final debugRole = ref.watch(debugRoleProvider);

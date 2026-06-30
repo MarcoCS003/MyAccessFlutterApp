@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../features/auth/providers/auth_provider.dart';
 import '../../features/auth/screens/login_screen.dart';
 import '../../features/padres/screens/link_child_screen.dart';
+import '../../features/padres/screens/link_child_confirm_screen.dart';
 import '../../features/padres/screens/child_detail_screen.dart';
 import '../../features/padres/screens/child_qr_screen.dart';
 import '../../features/maestros/screens/teacher_qr_screen.dart';
@@ -45,6 +46,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/link-child',
         builder: (context, state) => const LinkChildScreen(),
+      ),
+      GoRoute(
+        path: '/link-child/confirm',
+        builder: (context, state) {
+          final code = state.uri.queryParameters['code'] ?? '';
+          return LinkChildConfirmScreen(code: code);
+        },
       ),
       GoRoute(
         path: '/child/:id',

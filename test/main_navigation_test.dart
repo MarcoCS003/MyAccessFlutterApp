@@ -114,6 +114,7 @@ void main() {
               ),
             ),
           ),
+          emptyChildrenProviderOverride,
         ],
         child: const MaterialApp(
           home: MainNavigationScreen(),
@@ -138,6 +139,7 @@ void main() {
       ProviderScope(
         overrides: [
           authProvider.overrideWith((ref) => MockAuthNotifier(parentState)),
+          emptyChildrenProviderOverride,
         ],
         child: const MaterialApp(
           home: MainNavigationScreen(),
@@ -163,6 +165,7 @@ void main() {
       ProviderScope(
         overrides: [
           authProvider.overrideWith((ref) => MockAuthNotifier(teacherState)),
+          emptyChildrenProviderOverride,
         ],
         child: const MaterialApp(
           home: MainNavigationScreen(),

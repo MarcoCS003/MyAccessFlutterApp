@@ -27,6 +27,7 @@ void main() {
     expect(find.text('Control de Acceso Escolar'), findsOneWidget);
     expect(find.text('Bienvenido'), findsOneWidget);
     expect(find.text('Inicia sesión para recibir notificaciones de acceso.'), findsOneWidget);
-    expect(find.text('Continuar con Google'), findsOneWidget);
+    expect(find.text('Google (solo desarrollo)'), findsOneWidget);
+    expect(find.text('Iniciar sesión'), findsOneWidget);
   });
 }
