@@ -24,8 +24,8 @@ class ProfileScreen extends ConsumerWidget {
     final initials = parts.length >= 2
         ? '${parts[0][0]}${parts[1][0]}'.toUpperCase()
         : displayName.isNotEmpty
-            ? displayName[0].toUpperCase()
-            : 'U';
+        ? displayName[0].toUpperCase()
+        : 'U';
 
     return Column(
       children: [
@@ -73,8 +73,10 @@ class ProfileScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 12),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 5,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.18),
                   borderRadius: BorderRadius.circular(20),
@@ -103,8 +105,10 @@ class ProfileScreen extends ConsumerWidget {
             padding: const EdgeInsets.symmetric(vertical: 20),
             children: [
               Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 6,
+                ),
                 child: Text(
                   'Configuración',
                   style: GoogleFonts.inter(
@@ -122,17 +126,8 @@ class ProfileScreen extends ConsumerWidget {
                 title: 'Notificaciones',
                 subtitle: 'Mostrar alertas en la app',
                 value: profile.settings.notificationsEnabled,
-                onChanged: (val) => ref
-                    .read(profileProvider.notifier)
-                    .toggleNotifications(val),
-              ),
-
-              _buildThemeTile(
-                context: context,
-                profile: profile,
-                onChanged: (mode) => ref
-                    .read(profileProvider.notifier)
-                    .setThemeMode(mode),
+                onChanged: (val) =>
+                    ref.read(profileProvider.notifier).toggleNotifications(val),
               ),
 
               const Divider(
@@ -248,65 +243,6 @@ class ProfileScreen extends ConsumerWidget {
         value: value,
         onChanged: onChanged,
         activeThumbColor: AppTheme.primaryColor,
-      ),
-    );
-  }
-
-  Widget _buildThemeTile({
-    required BuildContext context,
-    required ProfileState profile,
-    required ValueChanged<ThemeMode> onChanged,
-  }) {
-    final themeLabels = {
-      ThemeMode.system: 'Según el sistema',
-      ThemeMode.light: 'Claro',
-      ThemeMode.dark: 'Oscuro',
-    };
-
-    return ListTile(
-      leading: Container(
-        width: 38,
-        height: 38,
-        decoration: BoxDecoration(
-          color: AppTheme.primaryColor.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: const Icon(
-          Icons.dark_mode_outlined,
-          color: AppTheme.primaryColor,
-          size: 20,
-        ),
-      ),
-      title: Text(
-        'Tema',
-        style: GoogleFonts.inter(
-          fontSize: 15,
-          fontWeight: FontWeight.w500,
-          color: AppTheme.textPrimaryColor,
-        ),
-      ),
-      subtitle: Text(
-        themeLabels[profile.settings.themeMode] ?? 'Sistema',
-        style: GoogleFonts.inter(
-          fontSize: 12,
-          color: AppTheme.textSecondaryColor,
-        ),
-      ),
-      trailing: DropdownButton<ThemeMode>(
-        value: profile.settings.themeMode,
-        underline: const SizedBox.shrink(),
-        onChanged: (mode) {
-          if (mode != null) onChanged(mode);
-        },
-        items: ThemeMode.values.map((mode) {
-          return DropdownMenuItem(
-            value: mode,
-            child: Text(
-              themeLabels[mode] ?? mode.name,
-              style: GoogleFonts.inter(fontSize: 13),
-            ),
-          );
-        }).toList(),
       ),
     );
   }

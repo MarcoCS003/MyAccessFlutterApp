@@ -69,11 +69,6 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
     await _saveSettings(newSettings);
   }
 
-  Future<void> setThemeMode(ThemeMode mode) async {
-    final newSettings = state.settings.copyWith(themeMode: mode);
-    await _saveSettings(newSettings);
-  }
-
   Future<void> _loadVersion() async {
     try {
       final info = await PackageInfo.fromPlatform();

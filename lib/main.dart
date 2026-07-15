@@ -9,7 +9,6 @@ import 'core/router/router.dart';
 import 'core/theme/theme.dart';
 import 'features/notifications/models/notification_item.dart';
 import 'features/notifications/providers/notification_provider.dart';
-import 'features/profile/providers/profile_provider.dart';
 import 'firebase_options.dart';
 
 @pragma('vm:entry-point')
@@ -27,9 +26,7 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   // FCM permissions and background handler registration.
   await FirebaseMessaging.instance.requestPermission(
@@ -45,11 +42,7 @@ Future<void> main() async {
   await Hive.openBox(AppConstants.notificationsBox);
   await Hive.openBox(AppConstants.settingsBox);
 
-  runApp(
-    const ProviderScope(
-      child: MyApp(),
-    ),
-  );
+  runApp(const ProviderScope(child: MyApp()));
 }
 
 class MyApp extends ConsumerStatefulWidget {
@@ -95,15 +88,10 @@ class _MyAppState extends ConsumerState<MyApp> {
   @override
   Widget build(BuildContext context) {
     final router = ref.watch(routerProvider);
-    final themeMode = ref.watch(
-      profileProvider.select((p) => p.settings.themeMode),
-    );
 
     return MaterialApp.router(
       title: 'MyAccess IJL',
       theme: AppTheme.lightTheme,
-      darkTheme: AppTheme.darkTheme,
-      themeMode: themeMode,
       routerConfig: router,
       debugShowCheckedModeBanner: false,
       builder: (context, child) {
