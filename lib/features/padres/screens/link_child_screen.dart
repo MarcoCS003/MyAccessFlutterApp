@@ -32,6 +32,16 @@ class _LinkChildScreenState extends ConsumerState<LinkChildScreen>
       vsync: this,
       duration: const Duration(seconds: 2),
     )..repeat(reverse: true);
+
+    _scannerController.addListener(() {
+      final state = _scannerController.value;
+      debugPrint(
+        '[MobileScanner] isInitialized=${state.isInitialized}, '
+        'isRunning=${state.isRunning}, '
+        'size=${state.size}, '
+        'error=${state.error?.errorCode} | ${state.error?.errorDetails?.message}',
+      );
+    });
   }
 
   @override
@@ -112,6 +122,11 @@ class _LinkChildScreenState extends ConsumerState<LinkChildScreen>
                     onDetect: _onQrDetected,
                     fit: BoxFit.cover,
                     errorBuilder: (context, error, child) {
+                      debugPrint(
+                        '[MobileScanner] errorBuilder: ${error.errorCode} | '
+                        '${error.errorDetails?.message} | '
+                        'permissionDenied=${error.errorCode == MobileScannerErrorCode.permissionDenied}',
+                      );
                       return Center(
                         child: Padding(
                           padding: const EdgeInsets.all(24.0),
@@ -144,7 +159,12 @@ class _LinkChildScreenState extends ConsumerState<LinkChildScreen>
                               ),
                               const SizedBox(height: 24),
                               ElevatedButton.icon(
-                                onPressed: () => _scannerController.start(),
+                                onPressed: () {
+                                  debugPrint(
+                                    '[MobileScanner] retrying start...',
+                                  );
+                                  _scannerController.start();
+                                },
                                 icon: const Icon(Icons.refresh),
                                 label: const Text('Reintentar'),
                                 style: ElevatedButton.styleFrom(
