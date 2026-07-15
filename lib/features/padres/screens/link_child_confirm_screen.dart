@@ -9,23 +9,30 @@ import '../providers/children_provider.dart';
 import '../providers/student_by_qr_provider.dart';
 import '../widgets/child_card.dart';
 
-class LinkChildConfirmScreen extends ConsumerWidget {
+class LinkChildConfirmScreen extends ConsumerStatefulWidget {
   final String code;
 
-  const LinkChildConfirmScreen({
-    super.key,
-    required this.code,
-  });
+  const LinkChildConfirmScreen({super.key, required this.code});
 
-  Future<void> _linkChild(BuildContext context, WidgetRef ref) async {
+  @override
+  ConsumerState<LinkChildConfirmScreen> createState() =>
+      _LinkChildConfirmScreenState();
+}
+
+class _LinkChildConfirmScreenState
+    extends ConsumerState<LinkChildConfirmScreen> {
+  bool _isLinking = false;
+
+  Future<void> _linkChild() async {
+    setState(() => _isLinking = true);
+
     try {
-      await ref.read(childrenProvider.notifier).linkChild(code);
-      if (context.mounted) {
-        ref.invalidate(childrenProvider);
+      await ref.read(childrenProvider.notifier).linkChild(widget.code);
+      if (mounted) {
         context.go('/home');
       }
     } on Failure catch (e) {
-      if (context.mounted) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(e.message),
@@ -34,7 +41,7 @@ class LinkChildConfirmScreen extends ConsumerWidget {
         );
       }
     } catch (e) {
-      if (context.mounted) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Error al vincular alumno'),
@@ -42,12 +49,16 @@ class LinkChildConfirmScreen extends ConsumerWidget {
           ),
         );
       }
+    } finally {
+      if (mounted) {
+        setState(() => _isLinking = false);
+      }
     }
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final studentAsync = ref.watch(studentByQrProvider(code));
+  Widget build(BuildContext context) {
+    final studentAsync = ref.watch(studentByQrProvider(widget.code));
 
     return Scaffold(
       appBar: AppBar(
@@ -87,7 +98,7 @@ class LinkChildConfirmScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Código escaneado: $code',
+                  'Código escaneado: ${widget.code}',
                   style: GoogleFonts.inter(
                     fontSize: 13,
                     color: AppTheme.textSecondaryColor,
@@ -99,7 +110,7 @@ class LinkChildConfirmScreen extends ConsumerWidget {
                 SizedBox(
                   height: 54,
                   child: ElevatedButton(
-                    onPressed: () => _linkChild(context, ref),
+                    onPressed: _isLinking ? null : _linkChild,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.primaryColor,
                       foregroundColor: Colors.white,
@@ -111,14 +122,23 @@ class LinkChildConfirmScreen extends ConsumerWidget {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    child: const Text('Vincular alumno'),
+                    child: _isLinking
+                        ? const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.5,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text('Vincular alumno'),
                   ),
                 ),
                 const SizedBox(height: 12),
                 SizedBox(
                   height: 54,
                   child: OutlinedButton(
-                    onPressed: () => context.pop(),
+                    onPressed: _isLinking ? null : () => context.pop(),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppTheme.textPrimaryColor,
                       side: const BorderSide(color: AppTheme.borderLightColor),
@@ -159,7 +179,7 @@ class LinkChildConfirmScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Código escaneado: $code',
+            'Código escaneado: ${widget.code}',
             textAlign: TextAlign.center,
             style: GoogleFonts.inter(
               fontSize: 14,
