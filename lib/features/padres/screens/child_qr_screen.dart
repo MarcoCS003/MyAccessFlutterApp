@@ -17,9 +17,8 @@ class ChildQrScreen extends ConsumerWidget {
     final childrenAsync = ref.watch(childrenProvider);
 
     return childrenAsync.when(
-      loading: () => const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      ),
+      loading: () =>
+          const Scaffold(body: Center(child: CircularProgressIndicator())),
       error: (e, _) => Scaffold(
         appBar: AppBar(title: const Text('Código QR')),
         body: Center(child: Text('Error: $e')),
@@ -57,9 +56,9 @@ class _ChildQrContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final firstName = child.name.split(' ').first;
-    // El QR codifica el identificador único del estudiante. El lector del
-    // colegio escaneará este valor para registrar entradas y salidas.
-    final qrPayload = child.id.toString();
+    // El QR codifica la referencia bancaria (qr_code) del estudiante. El lector
+    // del colegio escaneará este valor para registrar entradas y salidas.
+    final qrPayload = child.qrCode ?? child.id.toString();
 
     return Scaffold(
       backgroundColor: AppTheme.bgLightColor,
@@ -86,8 +85,10 @@ class _ChildQrContent extends StatelessWidget {
             children: [
               Container(
                 width: double.infinity,
-                padding:
-                    const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 40,
+                  horizontal: 24,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(24),
@@ -137,13 +138,15 @@ class _ChildQrContent extends StatelessWidget {
                     const SizedBox(height: 16),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 6),
+                        horizontal: 14,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         color: AppTheme.lightGoldColor,
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
-                        'ID: $qrPayload',
+                        'Ref: $qrPayload',
                         style: GoogleFonts.inter(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -156,8 +159,10 @@ class _ChildQrContent extends StatelessWidget {
               ),
               const SizedBox(height: 32),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.amber.shade50,
                   borderRadius: BorderRadius.circular(14),

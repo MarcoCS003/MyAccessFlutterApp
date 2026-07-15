@@ -5,6 +5,7 @@ class Child {
   final String group;
   final String? avatar;
   final String status;
+  final String? qrCode;
   final String? lastEvent;
   final DateTime? lastEventTime;
 
@@ -15,6 +16,7 @@ class Child {
     required this.group,
     this.avatar,
     this.status = 'outside',
+    this.qrCode,
     this.lastEvent,
     this.lastEventTime,
   });
@@ -26,6 +28,7 @@ class Child {
     String? group,
     String? avatar,
     String? status,
+    String? qrCode,
     String? lastEvent,
     DateTime? lastEventTime,
   }) {
@@ -36,6 +39,7 @@ class Child {
       group: group ?? this.group,
       avatar: avatar ?? this.avatar,
       status: status ?? this.status,
+      qrCode: qrCode ?? this.qrCode,
       lastEvent: lastEvent ?? this.lastEvent,
       lastEventTime: lastEventTime ?? this.lastEventTime,
     );
@@ -45,10 +49,15 @@ class Child {
     return Child(
       id: json['id'] as int,
       name: json['nombre'] as String? ?? json['name'] as String,
-      grade: json['grado'] as String? ?? json['nivel'] as String? ?? json['grade'] as String? ?? '',
+      grade:
+          json['grado'] as String? ??
+          json['nivel'] as String? ??
+          json['grade'] as String? ??
+          '',
       group: json['grupo'] as String? ?? json['group'] as String? ?? '',
       avatar: json['avatar'] as String?,
       status: json['status'] as String? ?? 'outside',
+      qrCode: json['qr_code'] as String?,
       lastEvent: json['last_event'] as String?,
       lastEventTime: json['last_event_time'] != null
           ? DateTime.parse(json['last_event_time'] as String)
@@ -64,6 +73,7 @@ class Child {
       'grupo': group,
       'avatar': avatar,
       'status': status,
+      'qr_code': qrCode,
       'last_event': lastEvent,
       'last_event_time': lastEventTime?.toIso8601String(),
     };

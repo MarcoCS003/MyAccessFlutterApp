@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -40,12 +42,23 @@ class _LinkChildScreenState extends ConsumerState<LinkChildScreen>
     super.dispose();
   }
 
-  /// Extrae solo los dígitos del QR. Si no hay dígitos, devuelve el valor
-  /// original limpio. Esto cubre QR que vengan como URL, JSON o con espacios.
+  /// Normaliza el contenido leído del QR. El backend puede generar códigos
+  /// planos (ej. STU005) o con formato JSON ({"personId":"STU005","type":"student"}).
+  /// En cualquier caso, devolvemos el qr_code limpio.
   String _sanitizeCode(String code) {
     final trimmed = code.trim();
-    final digits = trimmed.replaceAll(RegExp(r'[^0-9]'), '');
-    return digits.isNotEmpty ? digits : trimmed;
+
+    try {
+      final decoded = jsonDecode(trimmed) as Map<String, dynamic>?;
+      final personId = decoded?['personId'];
+      if (personId != null) {
+        return personId.toString().trim();
+      }
+    } catch (_) {
+      // No era JSON; usamos el valor crudo.
+    }
+
+    return trimmed;
   }
 
   void _onQrDetected(BarcodeCapture capture) {
@@ -54,8 +67,7 @@ class _LinkChildScreenState extends ConsumerState<LinkChildScreen>
     if (rawCode == null || rawCode.isEmpty) return;
 
     final now = DateTime.now();
-    if (_lastScanTime != null &&
-        now.difference(_lastScanTime!).inSeconds < 3) {
+    if (_lastScanTime != null && now.difference(_lastScanTime!).inSeconds < 3) {
       return;
     }
     if (_lastScannedCode == rawCode) return;
@@ -107,13 +119,18 @@ class _LinkChildScreenState extends ConsumerState<LinkChildScreen>
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Icon(Icons.keyboard_alt_outlined,
-                              color: Colors.white24, size: 64),
+                          const Icon(
+                            Icons.keyboard_alt_outlined,
+                            color: Colors.white24,
+                            size: 64,
+                          ),
                           const SizedBox(height: 8),
                           Text(
                             'Modo manual activado',
                             style: GoogleFonts.inter(
-                                color: Colors.white38, fontSize: 14),
+                              color: Colors.white38,
+                              fontSize: 14,
+                            ),
                           ),
                         ],
                       ),
@@ -131,8 +148,9 @@ class _LinkChildScreenState extends ConsumerState<LinkChildScreen>
                               height: size,
                               decoration: BoxDecoration(
                                 border: Border.all(
-                                    color: AppTheme.accentLightColor,
-                                    width: 2),
+                                  color: AppTheme.accentLightColor,
+                                  width: 2,
+                                ),
                                 borderRadius: BorderRadius.circular(16),
                               ),
                             ),
@@ -142,7 +160,7 @@ class _LinkChildScreenState extends ConsumerState<LinkChildScreen>
                             builder: (context, child) {
                               final topOffset =
                                   (constraints.maxHeight - size) / 2 +
-                                      (_animationController.value * size);
+                                  (_animationController.value * size);
                               return Positioned(
                                 top: topOffset,
                                 left: (constraints.maxWidth - size) / 2,
@@ -168,9 +186,10 @@ class _LinkChildScreenState extends ConsumerState<LinkChildScreen>
                           ? 'Ingresa el código en el panel inferior'
                           : 'Alinea el código QR dentro del recuadro',
                       style: GoogleFonts.inter(
-                          color: Colors.white,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500),
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ),
                 ),
@@ -204,8 +223,7 @@ class _LinkChildScreenState extends ConsumerState<LinkChildScreen>
                       children: [
                         Expanded(
                           child: GestureDetector(
-                            onTap: () =>
-                                setState(() => _isManualTab = false),
+                            onTap: () => setState(() => _isManualTab = false),
                             child: Column(
                               children: [
                                 Text(
@@ -230,8 +248,7 @@ class _LinkChildScreenState extends ConsumerState<LinkChildScreen>
                         ),
                         Expanded(
                           child: GestureDetector(
-                            onTap: () =>
-                                setState(() => _isManualTab = true),
+                            onTap: () => setState(() => _isManualTab = true),
                             child: Column(
                               children: [
                                 Text(
@@ -270,8 +287,9 @@ class _LinkChildScreenState extends ConsumerState<LinkChildScreen>
                                           labelText: 'Código del alumno',
                                           hintText: 'Ej: IJL-12345',
                                           border: OutlineInputBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(12),
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
                                           ),
                                         ),
                                       ),
@@ -279,17 +297,21 @@ class _LinkChildScreenState extends ConsumerState<LinkChildScreen>
                                     const SizedBox(width: 12),
                                     ElevatedButton(
                                       onPressed: () => _showConfirmation(
-                                          _codeController.text),
+                                        _codeController.text,
+                                      ),
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor:
                                             AppTheme.themeNavyColor,
                                         foregroundColor: Colors.white,
                                         shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(12),
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
                                         ),
                                         padding: const EdgeInsets.symmetric(
-                                            horizontal: 24, vertical: 16),
+                                          horizontal: 24,
+                                          vertical: 16,
+                                        ),
                                       ),
                                       child: const Text('Buscar'),
                                     ),
@@ -301,16 +323,18 @@ class _LinkChildScreenState extends ConsumerState<LinkChildScreen>
                               children: [
                                 Row(
                                   children: [
-                                    const Icon(Icons.info_outline_rounded,
-                                        color: AppTheme.textSecondaryColor),
+                                    const Icon(
+                                      Icons.info_outline_rounded,
+                                      color: AppTheme.textSecondaryColor,
+                                    ),
                                     const SizedBox(width: 12),
                                     Expanded(
                                       child: Text(
                                         'El código QR se encuentra impreso en la credencial escolar física del estudiante.',
                                         style: GoogleFonts.inter(
-                                            fontSize: 13,
-                                            color:
-                                                AppTheme.textSecondaryColor),
+                                          fontSize: 13,
+                                          color: AppTheme.textSecondaryColor,
+                                        ),
                                       ),
                                     ),
                                   ],
