@@ -45,16 +45,20 @@ class HomePadreScreen extends ConsumerWidget {
                       color: Colors.white,
                       margin: const EdgeInsets.only(bottom: 12),
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16)),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
                       child: ListTile(
                         leading: const CircleAvatar(
                           backgroundColor: AppTheme.lightGoldColor,
-                          child: Icon(Icons.qr_code,
-                              color: AppTheme.accentGoldColor),
+                          child: Icon(
+                            Icons.qr_code,
+                            color: AppTheme.accentGoldColor,
+                          ),
                         ),
-                        title: Text(child.name,
-                            style: GoogleFonts.inter(
-                                fontWeight: FontWeight.bold)),
+                        title: Text(
+                          child.name,
+                          style: GoogleFonts.inter(fontWeight: FontWeight.bold),
+                        ),
                         subtitle: Text('${child.grade} - ${child.group}'),
                         trailing: const Icon(Icons.chevron_right),
                         onTap: () => context.push('/child/${child.id}'),
@@ -109,7 +113,9 @@ class HomePadreScreen extends ConsumerWidget {
               Text(
                 'Revisa la actividad de tus hijos hoy.',
                 style: GoogleFonts.inter(
-                    fontSize: 14, color: AppTheme.textSecondaryColor),
+                  fontSize: 14,
+                  color: AppTheme.textSecondaryColor,
+                ),
               ),
               const SizedBox(height: 24),
               Row(
@@ -125,8 +131,7 @@ class HomePadreScreen extends ConsumerWidget {
                   ),
                   IconButton(
                     onPressed: () => context.push('/link-child'),
-                    icon: const Icon(Icons.add,
-                        color: AppTheme.themeNavyColor),
+                    icon: const Icon(Icons.add, color: AppTheme.themeNavyColor),
                     style: IconButton.styleFrom(
                       backgroundColor: AppTheme.borderLightColor,
                       padding: const EdgeInsets.all(8),
@@ -147,8 +152,11 @@ class HomePadreScreen extends ConsumerWidget {
                     padding: const EdgeInsets.all(32.0),
                     child: Column(
                       children: [
-                        const Icon(Icons.error_outline,
-                            color: AppTheme.errorColor, size: 48),
+                        const Icon(
+                          Icons.error_outline,
+                          color: AppTheme.errorColor,
+                          size: 48,
+                        ),
                         const SizedBox(height: 12),
                         Text(
                           'Error al cargar hijos',
@@ -173,10 +181,12 @@ class HomePadreScreen extends ConsumerWidget {
                     ? _buildEmptyState(context)
                     : Column(
                         children: children
-                            .map((child) => ChildCard(
-                                  child: child,
-                                  onTap: () => context.push('/child/${child.id}'),
-                                ))
+                            .map(
+                              (child) => ChildCard(
+                                child: child,
+                                onTap: () => context.push('/child/${child.id}'),
+                              ),
+                            )
                             .toList(),
                       ),
               ),
@@ -248,20 +258,26 @@ class HomePadreScreen extends ConsumerWidget {
         padding: const EdgeInsets.symmetric(vertical: 32.0),
         child: Column(
           children: [
-            const Icon(Icons.people_outline_rounded,
-                size: 80, color: AppTheme.borderLightColor),
+            const Icon(
+              Icons.people_outline_rounded,
+              size: 80,
+              color: AppTheme.borderLightColor,
+            ),
             const SizedBox(height: 16),
             Text(
               'Aún no tienes hijos vinculados',
               style: GoogleFonts.poppins(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.textPrimaryColor),
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.textPrimaryColor,
+              ),
             ),
             Text(
               'Toca el botón + para vincular a tu primer hijo.',
               style: GoogleFonts.inter(
-                  fontSize: 14, color: AppTheme.textSecondaryColor),
+                fontSize: 14,
+                color: AppTheme.textSecondaryColor,
+              ),
             ),
           ],
         ),
@@ -310,17 +326,14 @@ class _RecentEventTile extends StatelessWidget {
                       color: Color(0x0A002452),
                       blurRadius: 4,
                       offset: Offset(0, 2),
-                    )
+                    ),
                   ],
                 ),
                 child: Icon(icon, color: iconColor, size: 20),
               ),
               if (!isLast)
                 Expanded(
-                  child: Container(
-                    width: 2,
-                    color: AppTheme.borderLightColor,
-                  ),
+                  child: Container(width: 2, color: AppTheme.borderLightColor),
                 ),
             ],
           ),
@@ -333,7 +346,8 @@ class _RecentEventTile extends StatelessWidget {
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                    color: AppTheme.borderLightColor.withValues(alpha: 0.5)),
+                  color: AppTheme.borderLightColor.withValues(alpha: 0.5),
+                ),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -344,14 +358,16 @@ class _RecentEventTile extends StatelessWidget {
                       Text(
                         title,
                         style: GoogleFonts.inter(
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.textPrimaryColor),
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.textPrimaryColor,
+                        ),
                       ),
                       Text(
                         event.time,
                         style: GoogleFonts.inter(
-                            fontSize: 12,
-                            color: AppTheme.textSecondaryColor),
+                          fontSize: 12,
+                          color: AppTheme.textSecondaryColor,
+                        ),
                       ),
                     ],
                   ),
@@ -359,8 +375,9 @@ class _RecentEventTile extends StatelessWidget {
                   Text(
                     '$firstName ${isEntry ? 'ingresó' : 'salió'} por $location',
                     style: GoogleFonts.inter(
-                        fontSize: 13,
-                        color: AppTheme.textSecondaryColor),
+                      fontSize: 13,
+                      color: AppTheme.textSecondaryColor,
+                    ),
                   ),
                 ],
               ),
@@ -371,5 +388,3 @@ class _RecentEventTile extends StatelessWidget {
     );
   }
 }
-
-

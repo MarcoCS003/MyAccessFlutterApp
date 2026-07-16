@@ -5,9 +5,10 @@ import 'package:hive_flutter/hive_flutter.dart';
 import '../../../core/constants/app_constants.dart';
 import '../models/notification_item.dart';
 
-final notificationProvider = StateNotifierProvider<NotificationNotifier, List<NotificationItem>>((ref) {
-  return NotificationNotifier();
-});
+final notificationProvider =
+    StateNotifierProvider<NotificationNotifier, List<NotificationItem>>((ref) {
+      return NotificationNotifier();
+    });
 
 class NotificationNotifier extends StateNotifier<List<NotificationItem>> {
   NotificationNotifier() : super([]) {
@@ -39,7 +40,9 @@ class NotificationNotifier extends StateNotifier<List<NotificationItem>> {
   }
 
   Future<void> markAsRead(String id) async {
-    state = state.map((n) => n.id == id ? n.copyWith(isRead: true) : n).toList();
+    state = state
+        .map((n) => n.id == id ? n.copyWith(isRead: true) : n)
+        .toList();
     await _saveToHive();
   }
 

@@ -69,7 +69,9 @@ class TeacherQRScreen extends ConsumerWidget {
                   children: [
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 6),
+                        horizontal: 16,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         color: AppTheme.accentGoldColor,
                         borderRadius: BorderRadius.circular(20),
@@ -132,12 +134,15 @@ class TeacherQRScreen extends ConsumerWidget {
               const SizedBox(height: 28),
               Container(
                 padding: const EdgeInsets.symmetric(
-                    horizontal: 20, vertical: 16),
+                  horizontal: 20,
+                  vertical: 16,
+                ),
                 decoration: BoxDecoration(
                   color: AppTheme.primaryColor.withValues(alpha: 0.06),
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
-                      color: AppTheme.primaryColor.withValues(alpha: 0.15)),
+                    color: AppTheme.primaryColor.withValues(alpha: 0.15),
+                  ),
                 ),
                 child: Row(
                   children: [

@@ -29,9 +29,7 @@ void main() {
           ),
           emptyChildrenProviderOverride,
         ],
-        child: const MaterialApp(
-          home: Scaffold(body: HomePadreScreen()),
-        ),
+        child: const MaterialApp(home: Scaffold(body: HomePadreScreen())),
       ),
     );
     expect(find.text('Tus hijos vinculados'), findsOneWidget);

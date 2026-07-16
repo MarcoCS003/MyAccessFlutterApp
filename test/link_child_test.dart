@@ -6,11 +6,7 @@ import 'package:cliente_flutter_myaccess/features/padres/screens/link_child_scre
 void main() {
   testWidgets('LinkChildScreen renderiza panel de escaneo', (tester) async {
     await tester.pumpWidget(
-      const ProviderScope(
-        child: MaterialApp(
-          home: LinkChildScreen(),
-        ),
-      ),
+      const ProviderScope(child: MaterialApp(home: LinkChildScreen())),
     );
     expect(find.text('Vincular Hijo'), findsOneWidget);
   });

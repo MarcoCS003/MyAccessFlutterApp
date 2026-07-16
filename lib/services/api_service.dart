@@ -9,11 +9,9 @@ class ApiService {
   final Dio _dio;
   final FlutterSecureStorage _secureStorage;
 
-  ApiService({
-    Dio? dio,
-    FlutterSecureStorage? secureStorage,
-  })  : _dio = dio ?? _createDio(),
-        _secureStorage = secureStorage ?? const FlutterSecureStorage() {
+  ApiService({Dio? dio, FlutterSecureStorage? secureStorage})
+    : _dio = dio ?? _createDio(),
+      _secureStorage = secureStorage ?? const FlutterSecureStorage() {
     // Solo agregamos el interceptor al Dio interno. Si un Dio es inyectado
     // (por ejemplo en tests), se asume que el llamador maneja la autenticación.
     if (dio == null) {
@@ -49,11 +47,9 @@ class ApiService {
     );
 
     if (kDebugMode) {
-      dio.interceptors.add(LogInterceptor(
-        requestBody: true,
-        responseBody: true,
-        error: true,
-      ));
+      dio.interceptors.add(
+        LogInterceptor(requestBody: true, responseBody: true, error: true),
+      );
     }
 
     return dio;
@@ -64,11 +60,13 @@ class ApiService {
     Map<String, dynamic>? queryParameters,
     bool requiresAuth = true,
   }) async {
-    return _handleRequest(() => _dio.get<T>(
-          path,
-          queryParameters: queryParameters,
-          options: Options(extra: {'requiresAuth': requiresAuth}),
-        ));
+    return _handleRequest(
+      () => _dio.get<T>(
+        path,
+        queryParameters: queryParameters,
+        options: Options(extra: {'requiresAuth': requiresAuth}),
+      ),
+    );
   }
 
   Future<T> post<T>(
@@ -76,11 +74,13 @@ class ApiService {
     dynamic data,
     bool requiresAuth = true,
   }) async {
-    return _handleRequest(() => _dio.post<T>(
-          path,
-          data: data,
-          options: Options(extra: {'requiresAuth': requiresAuth}),
-        ));
+    return _handleRequest(
+      () => _dio.post<T>(
+        path,
+        data: data,
+        options: Options(extra: {'requiresAuth': requiresAuth}),
+      ),
+    );
   }
 
   Future<T> delete<T>(
@@ -88,11 +88,13 @@ class ApiService {
     dynamic data,
     bool requiresAuth = true,
   }) async {
-    return _handleRequest(() => _dio.delete<T>(
-          path,
-          data: data,
-          options: Options(extra: {'requiresAuth': requiresAuth}),
-        ));
+    return _handleRequest(
+      () => _dio.delete<T>(
+        path,
+        data: data,
+        options: Options(extra: {'requiresAuth': requiresAuth}),
+      ),
+    );
   }
 
   Future<T> _handleRequest<T>(Future<Response<T>> Function() request) async {
@@ -118,10 +120,7 @@ class ApiService {
       case DioExceptionType.badResponse:
         final statusCode = e.response?.statusCode;
         final message = _extractMessage(e.response?.data);
-        return ServerFailure(
-          message,
-          statusCode: statusCode,
-        );
+        return ServerFailure(message, statusCode: statusCode);
       case DioExceptionType.cancel:
         return const NetworkFailure('Solicitud cancelada');
       case DioExceptionType.badCertificate:

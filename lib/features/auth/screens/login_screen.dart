@@ -27,7 +27,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    await ref.read(authProvider.notifier).signInWithEmailPassword(
+    await ref
+        .read(authProvider.notifier)
+        .signInWithEmailPassword(
           _emailController.text.trim(),
           _passwordController.text.trim(),
         );
@@ -39,7 +41,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final size = MediaQuery.of(context).size;
     final topPadding = MediaQuery.of(context).padding.top;
     final bottomPadding = MediaQuery.of(context).padding.bottom;
-    
+
     // Header height is 40% of the screen height
     final headerHeight = size.height * 0.40;
     // Card min height is 60% of the screen height, plus 24px overlap
@@ -60,15 +62,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [
-                    Color(0xFF1B3A6B),
-                    Color(0xFF12284D),
-                  ],
+                  colors: [Color(0xFF1B3A6B), Color(0xFF12284D)],
                 ),
               ),
             ),
           ),
-          
+
           // 2. Scrollable Body
           Positioned.fill(
             child: SingleChildScrollView(
@@ -120,13 +119,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ],
                     ),
                   ),
-                  
+
                   // White/Light Card (Bottom 60%)
                   Container(
                     width: double.infinity,
-                    constraints: BoxConstraints(
-                      minHeight: cardMinHeight,
-                    ),
+                    constraints: BoxConstraints(minHeight: cardMinHeight),
                     decoration: const BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.only(
@@ -142,7 +139,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ],
                     ),
                     child: Padding(
-                      padding: EdgeInsets.fromLTRB(28, 36, 28, 28 + bottomPadding),
+                      padding: EdgeInsets.fromLTRB(
+                        28,
+                        36,
+                        28,
+                        28 + bottomPadding,
+                      ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
@@ -180,7 +182,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                   decoration: InputDecoration(
                                     labelText: 'Correo electrónico',
                                     hintText: 'tutor@ijl.edu.mx',
-                                    prefixIcon: const Icon(Icons.email_outlined),
+                                    prefixIcon: const Icon(
+                                      Icons.email_outlined,
+                                    ),
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(12),
                                     ),
@@ -220,8 +224,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 SizedBox(
                                   height: 54,
                                   child: ElevatedButton(
-                                    onPressed:
-                                        authState.isLoading ? null : _submit,
+                                    onPressed: authState.isLoading
+                                        ? null
+                                        : _submit,
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: AppTheme.primaryColor,
                                       foregroundColor: Colors.white,
@@ -278,8 +283,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               onPressed: authState.isLoading
                                   ? null
                                   : () => ref
-                                      .read(authProvider.notifier)
-                                      .signInWithGoogle(),
+                                        .read(authProvider.notifier)
+                                        .signInWithGoogle(),
                               style: OutlinedButton.styleFrom(
                                 backgroundColor: Colors.white,
                                 foregroundColor: AppTheme.textPrimaryColor,
@@ -290,8 +295,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 16),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                ),
                               ),
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
@@ -311,7 +317,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             ),
                           ),
                           const SizedBox(height: 24),
-                          
+
                           // Help link
                           Align(
                             alignment: Alignment.center,
@@ -321,7 +327,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               },
                               borderRadius: BorderRadius.circular(4),
                               child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
                                 child: Text(
                                   '¿Necesitas ayuda? Contacta a la escuela',
                                   style: GoogleFonts.inter(
@@ -335,7 +344,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             ),
                           ),
                           const SizedBox(height: 60),
-                          
+
                           // Terms and Conditions footer
                           Text(
                             'Al iniciar sesión, aceptas nuestros términos y condiciones',
@@ -362,9 +371,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     return SizedBox(
       width: 20,
       height: 20,
-      child: CustomPaint(
-        painter: const GoogleLogoPainter(),
-      ),
+      child: CustomPaint(painter: const GoogleLogoPainter()),
     );
   }
 }

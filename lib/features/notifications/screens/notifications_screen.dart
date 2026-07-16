@@ -33,7 +33,8 @@ class NotificationsScreen extends ConsumerWidget {
         actions: [
           if (unreadCount > 0)
             TextButton(
-              onPressed: () => ref.read(notificationProvider.notifier).markAllAsRead(),
+              onPressed: () =>
+                  ref.read(notificationProvider.notifier).markAllAsRead(),
               child: Text(
                 'Marcar todo',
                 style: GoogleFonts.inter(
@@ -111,7 +112,9 @@ class NotificationsScreen extends ConsumerWidget {
     );
   }
 
-  Map<String, List<NotificationItem>> _groupByDate(List<NotificationItem> items) {
+  Map<String, List<NotificationItem>> _groupByDate(
+    List<NotificationItem> items,
+  ) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final yesterday = today.subtract(const Duration(days: 1));
@@ -123,7 +126,11 @@ class NotificationsScreen extends ConsumerWidget {
     };
 
     for (final item in items) {
-      final date = DateTime(item.timestamp.year, item.timestamp.month, item.timestamp.day);
+      final date = DateTime(
+        item.timestamp.year,
+        item.timestamp.month,
+        item.timestamp.day,
+      );
       if (date.isAtSameMomentAs(today)) {
         grouped['Hoy']!.add(item);
       } else if (date.isAtSameMomentAs(yesterday)) {
@@ -158,9 +165,11 @@ class _NotificationTile extends ConsumerWidget {
         color: AppTheme.errorColor,
         child: const Icon(Icons.delete_outline, color: Colors.white),
       ),
-      onDismissed: (_) => ref.read(notificationProvider.notifier).dismiss(item.id),
+      onDismissed: (_) =>
+          ref.read(notificationProvider.notifier).dismiss(item.id),
       child: InkWell(
-        onTap: () => ref.read(notificationProvider.notifier).markAsRead(item.id),
+        onTap: () =>
+            ref.read(notificationProvider.notifier).markAsRead(item.id),
         child: Container(
           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
           decoration: BoxDecoration(
@@ -216,7 +225,10 @@ class _NotificationTile extends ConsumerWidget {
                                 ),
                                 if (!item.isRead)
                                   Container(
-                                    margin: const EdgeInsets.only(left: 8, top: 4),
+                                    margin: const EdgeInsets.only(
+                                      left: 8,
+                                      top: 4,
+                                    ),
                                     width: 8,
                                     height: 8,
                                     decoration: const BoxDecoration(
@@ -240,8 +252,9 @@ class _NotificationTile extends ConsumerWidget {
                               timeText,
                               style: GoogleFonts.inter(
                                 fontSize: 11,
-                                color: AppTheme.textSecondaryColor
-                                    .withValues(alpha: 0.7),
+                                color: AppTheme.textSecondaryColor.withValues(
+                                  alpha: 0.7,
+                                ),
                                 fontWeight: FontWeight.w500,
                               ),
                             ),

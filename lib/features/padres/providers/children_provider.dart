@@ -8,11 +8,15 @@ import '../../../services/api_service.dart';
 import '../models/child.dart';
 import '../models/timeline_event.dart';
 
-final childrenProvider = StateNotifierProvider<ChildrenNotifier, AsyncValue<List<Child>>>((ref) {
-  return ChildrenNotifier();
-});
+final childrenProvider =
+    StateNotifierProvider<ChildrenNotifier, AsyncValue<List<Child>>>((ref) {
+      return ChildrenNotifier();
+    });
 
-final childTimelineProvider = FutureProvider.family<List<TimelineEvent>, int>((ref, childId) async {
+final childTimelineProvider = FutureProvider.family<List<TimelineEvent>, int>((
+  ref,
+  childId,
+) async {
   // El backend actual no expone un endpoint de asistencias por estudiante.
   // Se deja como lista vacía para evitar errores 404; cuando exista el
   // endpoint, reemplazar por la llamada real a
@@ -24,26 +28,28 @@ final childTimelineProvider = FutureProvider.family<List<TimelineEvent>, int>((r
 /// actividad reciente en el home del padre.
 final recentActivityProvider =
     FutureProvider<List<(TimelineEvent event, String childName)>>((ref) async {
-  final childrenAsync = ref.watch(childrenProvider);
-  final children = childrenAsync.valueOrNull ?? [];
-  if (children.isEmpty) return [];
+      final childrenAsync = ref.watch(childrenProvider);
+      final children = childrenAsync.valueOrNull ?? [];
+      if (children.isEmpty) return [];
 
-  final timelines = await Future.wait(
-    children.map((child) async {
-      final events = await ref.watch(childTimelineProvider(child.id).future);
-      return events.map((e) => (e, child.name)).toList();
-    }),
-  );
+      final timelines = await Future.wait(
+        children.map((child) async {
+          final events = await ref.watch(
+            childTimelineProvider(child.id).future,
+          );
+          return events.map((e) => (e, child.name)).toList();
+        }),
+      );
 
-  final allEvents = timelines.expand((events) => events).toList();
-  allEvents.sort((a, b) => b.$1.recordedAt.compareTo(a.$1.recordedAt));
-  return allEvents.take(10).toList();
-});
+      final allEvents = timelines.expand((events) => events).toList();
+      allEvents.sort((a, b) => b.$1.recordedAt.compareTo(a.$1.recordedAt));
+      return allEvents.take(10).toList();
+    });
 
 class ChildrenNotifier extends StateNotifier<AsyncValue<List<Child>>> {
   ChildrenNotifier({ApiService? apiService})
-      : _apiService = apiService ?? ApiService(),
-        super(const AsyncValue.loading());
+    : _apiService = apiService ?? ApiService(),
+      super(const AsyncValue.loading());
 
   /// Inicia la carga de hijos. Se llama explícitamente desde
   /// [MainNavigationScreen] para evitar peticiones automáticas antes de que
@@ -58,7 +64,9 @@ class ChildrenNotifier extends StateNotifier<AsyncValue<List<Child>>> {
     state = const AsyncValue.loading();
 
     try {
+      debugPrint('[CHILDREN] Loading children from /api/user...');
       final response = await _apiService.get('/user');
+      debugPrint('[CHILDREN] /api/user response: $response');
       final data = response as Map<String, dynamic>;
       final students = data['students'] as List<dynamic>? ?? [];
       final children = students
@@ -86,10 +94,7 @@ class ChildrenNotifier extends StateNotifier<AsyncValue<List<Child>>> {
     final previousState = state;
 
     try {
-      await _apiService.post(
-        '/vincular-alumno',
-        data: {'codigo_alumno': code},
-      );
+      await _apiService.post('/vincular-alumno', data: {'codigo_alumno': code});
 
       // El backend no devuelve el estudiante vinculado, así que refrescamos
       // la lista completa desde /api/user para obtener los datos actualizados.

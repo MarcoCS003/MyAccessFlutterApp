@@ -15,7 +15,8 @@ class TimelineEvent {
     this.studentId,
   });
 
-  String get title => type == 'check_in' ? 'Entrada registrada' : 'Salida registrada';
+  String get title =>
+      type == 'check_in' ? 'Entrada registrada' : 'Salida registrada';
   String get time => DateFormat('HH:mm').format(recordedAt);
   String get date => DateFormat('EEE, d MMM', 'es').format(recordedAt);
 
@@ -39,7 +40,9 @@ class TimelineEvent {
     return TimelineEvent(
       id: json['id'] as int,
       type: json['type'] as String,
-      recordedAt: DateTime.parse(json['recorded_at'] as String? ?? json['created_at'] as String),
+      recordedAt: DateTime.parse(
+        json['recorded_at'] as String? ?? json['created_at'] as String,
+      ),
       location: json['location'] as String?,
       studentId: json['student_id'] as int?,
     );

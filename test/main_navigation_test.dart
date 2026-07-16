@@ -51,7 +51,8 @@ class _MockHttpHeaders implements HttpHeaders {
   dynamic noSuchMethod(Invocation invocation) => null;
 }
 
-class _MockHttpClientResponse extends Stream<List<int>> implements HttpClientResponse {
+class _MockHttpClientResponse extends Stream<List<int>>
+    implements HttpClientResponse {
   @override
   StreamSubscription<List<int>> listen(
     void Function(List<int> event)? onData, {
@@ -86,9 +87,49 @@ class _MockHttpClientResponse extends Stream<List<int>> implements HttpClientRes
 }
 
 final List<int> _transparentImage = [
-  0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 0x01, 0x00, 0x01, 0x00, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0xff, 0xff, 0xff, 0x21, 0xf9, 0x04, 0x01, 0x00, 0x00, 0x00, 0x00, 0x2c, 0x00, 0x00, 0x00, 0x00,
-  0x01, 0x00, 0x01, 0x00, 0x00, 0x02, 0x02, 0x44, 0x01, 0x00, 0x3b
+  0x47,
+  0x49,
+  0x46,
+  0x38,
+  0x39,
+  0x61,
+  0x01,
+  0x00,
+  0x01,
+  0x00,
+  0x80,
+  0x00,
+  0x00,
+  0x00,
+  0x00,
+  0x00,
+  0xff,
+  0xff,
+  0xff,
+  0x21,
+  0xf9,
+  0x04,
+  0x01,
+  0x00,
+  0x00,
+  0x00,
+  0x00,
+  0x2c,
+  0x00,
+  0x00,
+  0x00,
+  0x00,
+  0x01,
+  0x00,
+  0x01,
+  0x00,
+  0x00,
+  0x02,
+  0x02,
+  0x44,
+  0x01,
+  0x00,
+  0x3b,
 ];
 
 void main() {
@@ -97,7 +138,9 @@ void main() {
     await initializeTestHive();
   });
 
-  testWidgets('MainNavigationScreen debe mostrar BottomNavigationBar', (tester) async {
+  testWidgets('MainNavigationScreen debe mostrar BottomNavigationBar', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -116,15 +159,15 @@ void main() {
           ),
           emptyChildrenProviderOverride,
         ],
-        child: const MaterialApp(
-          home: MainNavigationScreen(),
-        ),
+        child: const MaterialApp(home: MainNavigationScreen()),
       ),
     );
     expect(find.byType(BottomNavigationBar), findsOneWidget);
   });
 
-  testWidgets('MainNavigationScreen en rol Padre muestra HomePadreScreen', (tester) async {
+  testWidgets('MainNavigationScreen en rol Padre muestra HomePadreScreen', (
+    tester,
+  ) async {
     final parentState = AuthState(
       status: AuthStatus.authenticated,
       user: User(
@@ -141,16 +184,16 @@ void main() {
           authProvider.overrideWith((ref) => MockAuthNotifier(parentState)),
           emptyChildrenProviderOverride,
         ],
-        child: const MaterialApp(
-          home: MainNavigationScreen(),
-        ),
+        child: const MaterialApp(home: MainNavigationScreen()),
       ),
     );
 
     expect(find.byType(HomePadreScreen), findsOneWidget);
   });
 
-  testWidgets('MainNavigationScreen en rol Docente muestra HomeMaestroScreen', (tester) async {
+  testWidgets('MainNavigationScreen en rol Docente muestra HomeMaestroScreen', (
+    tester,
+  ) async {
     final teacherState = AuthState(
       status: AuthStatus.authenticated,
       user: User(
@@ -167,9 +210,7 @@ void main() {
           authProvider.overrideWith((ref) => MockAuthNotifier(teacherState)),
           emptyChildrenProviderOverride,
         ],
-        child: const MaterialApp(
-          home: MainNavigationScreen(),
-        ),
+        child: const MaterialApp(home: MainNavigationScreen()),
       ),
     );
 

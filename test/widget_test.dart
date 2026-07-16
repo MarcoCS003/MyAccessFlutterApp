@@ -17,16 +17,17 @@ void main() {
             (ref) => MockAuthNotifier(const AuthState()),
           ),
         ],
-        child: const MaterialApp(
-          home: LoginScreen(),
-        ),
+        child: const MaterialApp(home: LoginScreen()),
       ),
     );
 
     expect(find.text('Instituto Juárez Lincoln'), findsOneWidget);
     expect(find.text('Control de Acceso Escolar'), findsOneWidget);
     expect(find.text('Bienvenido'), findsOneWidget);
-    expect(find.text('Inicia sesión para recibir notificaciones de acceso.'), findsOneWidget);
+    expect(
+      find.text('Inicia sesión para recibir notificaciones de acceso.'),
+      findsOneWidget,
+    );
     expect(find.text('Google (solo desarrollo)'), findsOneWidget);
     expect(find.text('Iniciar sesión'), findsOneWidget);
   });

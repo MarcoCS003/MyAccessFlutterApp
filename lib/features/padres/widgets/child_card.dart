@@ -11,16 +11,13 @@ class ChildCard extends StatelessWidget {
   final Child child;
   final VoidCallback? onTap;
 
-  const ChildCard({
-    super.key,
-    required this.child,
-    this.onTap,
-  });
+  const ChildCard({super.key, required this.child, this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final isPresent = child.status == 'inside';
-    final lastEventText = child.lastEvent ??
+    final lastEventText =
+        child.lastEvent ??
         (isPresent ? 'Última entrada: 07:45 AM' : 'Aún no ingresa');
     final lastEventTime = child.lastEventTime != null
         ? DateFormat('dd/MM/yyyy HH:mm').format(child.lastEventTime!)
@@ -77,8 +74,10 @@ class ChildCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: isPresent
                           ? const Color(0xFFECFDF5)
@@ -118,8 +117,10 @@ class ChildCard extends StatelessWidget {
               ),
             ),
             if (onTap != null)
-              const Icon(Icons.chevron_right,
-                  color: AppTheme.textSecondaryColor),
+              const Icon(
+                Icons.chevron_right,
+                color: AppTheme.textSecondaryColor,
+              ),
           ],
         ),
       ),

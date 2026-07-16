@@ -20,6 +20,8 @@
 
 ## Auth & Backend (Critical)
 
+- **⚠️ NEVER MODIFY THE BACKEND.** The Laravel backend (`/home/marcocarrasco/Documentos/Proyectos/myAccessIJL`) is a separate project. Do NOT start/stop it, change its port, host binding, or configuration. It runs as `php artisan serve` (default `127.0.0.1:8000`) managed by the user. If you need the emulator to reach it, use `adb reverse tcp:8000 tcp:8000` instead.
+- **Change the backend URL only via `lib/core/constants/api_config.dart`.** This is the single source of truth for the API base URL — toggle between emulator (`10.0.2.2`) and physical device (`192.168.20.206`) by commenting/uncommenting `ApiConfig.baseUrl`.
 - **Auth is currently mocked.** `lib/features/auth/providers/auth_provider.dart` uses a hardcoded `MockUser` and manual `login()` / `logout()` / `toggleRole()`.
 - **Firebase is configured** for project `notificacionesapptutores`:
   - Android: `android/app/google-services.json` (package `com.jmoreno.riverboldbrave`).

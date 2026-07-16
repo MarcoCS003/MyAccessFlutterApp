@@ -28,9 +28,7 @@ void main() {
             return <TimelineEvent>[];
           }),
         ],
-        child: const MaterialApp(
-          home: ChildDetailScreen(childId: '1'),
-        ),
+        child: const MaterialApp(home: ChildDetailScreen(childId: '1')),
       ),
     );
     await tester.pumpAndSettle();

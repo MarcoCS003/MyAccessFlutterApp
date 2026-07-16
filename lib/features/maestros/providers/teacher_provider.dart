@@ -39,11 +39,7 @@ final teacherProvider = Provider<TeacherState>((ref) {
   final notifications = ref.watch(notificationProvider);
 
   final qrData = user != null
-      ? jsonEncode({
-          'type': 'teacher',
-          'id': user.id,
-          'name': user.name,
-        })
+      ? jsonEncode({'type': 'teacher', 'id': user.id, 'name': user.name})
       : '';
 
   return TeacherState(
@@ -82,7 +78,9 @@ TeacherStats _calculateStats(List<NotificationItem> notifications) {
   );
 }
 
-List<NotificationItem> _todayNotifications(List<NotificationItem> notifications) {
+List<NotificationItem> _todayNotifications(
+  List<NotificationItem> notifications,
+) {
   final now = DateTime.now();
   final today = DateTime(now.year, now.month, now.day);
 

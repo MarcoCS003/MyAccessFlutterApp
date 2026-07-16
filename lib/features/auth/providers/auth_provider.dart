@@ -9,6 +9,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 import '../../../core/constants/app_constants.dart';
+import '../../../core/errors/failures.dart';
 import '../../../services/api_service.dart';
 import '../models/auth_state.dart';
 import '../models/user.dart';
@@ -21,12 +22,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
     FlutterSecureStorage? secureStorage,
     ApiService? apiService,
     bool skipInitialCheck = false,
-  })  : _googleSignIn = googleSignIn ?? GoogleSignIn(),
-        _firebaseAuth = firebaseAuth ?? firebase_auth.FirebaseAuth.instance,
-        _firebaseMessaging = firebaseMessaging ?? FirebaseMessaging.instance,
-        _secureStorage = secureStorage ?? const FlutterSecureStorage(),
-        _apiService = apiService ?? ApiService(),
-        super(const AuthState()) {
+  }) : _googleSignIn = googleSignIn ?? GoogleSignIn(),
+       _firebaseAuth = firebaseAuth ?? firebase_auth.FirebaseAuth.instance,
+       _firebaseMessaging = firebaseMessaging ?? FirebaseMessaging.instance,
+       _secureStorage = secureStorage ?? const FlutterSecureStorage(),
+       _apiService = apiService ?? ApiService(),
+       super(const AuthState()) {
     if (!skipInitialCheck) {
       checkAuthStatus();
     }
@@ -55,53 +56,46 @@ class AuthNotifier extends StateNotifier<AuthState> {
         idToken: googleAuth.idToken,
       );
 
-      final firebaseUser =
-          await _firebaseAuth.signInWithCredential(credential);
+      final firebaseUser = await _firebaseAuth.signInWithCredential(credential);
       final idToken = await firebaseUser.user?.getIdToken();
 
       if (idToken == null) {
         throw Exception('No se pudo obtener idToken de Firebase');
       }
 
+      debugPrint('[GOOGLE_LOGIN] Firebase idToken length: ${idToken.length}');
+      debugPrint(
+        '[GOOGLE_LOGIN] Firebase idToken prefix: ${idToken.substring(0, idToken.length > 20 ? 20 : idToken.length)}',
+      );
+
       final fcmToken = await _firebaseMessaging.getToken();
+      debugPrint('[GOOGLE_LOGIN] FCM token: $fcmToken');
 
       User authenticatedUser;
       String jwtToken;
 
-      try {
-        final response = await _apiService.post(
-          '/auth/google-login',
-          data: {
-            'idToken': idToken,
-            'fcmToken': fcmToken,
-          },
-          requiresAuth: false,
-        );
-
-        final responseData = response as Map<String, dynamic>;
-        jwtToken = responseData['token'] as String;
-        authenticatedUser = User.fromJson(responseData['user'] as Map<String, dynamic>);
-      } catch (e) {
-        // Fallback for local development when the backend is unavailable.
-        debugPrint('Backend login failed, using simulated response: $e');
-        await Future.delayed(const Duration(milliseconds: 400));
-        jwtToken = 'simulated_jwt_$idToken';
-        authenticatedUser = User(
-          id: 1,
-          name: googleUser.displayName ?? 'Usuario IJL',
-          email: googleUser.email,
-          avatar: googleUser.photoUrl,
-          role: googleUser.email.contains('teacher') ||
-                  googleUser.email.contains('maestro')
-              ? AppConstants.roleTeacher
-              : AppConstants.roleParent,
-        );
-      }
-
-      await _persistSession(
-        jwtToken: jwtToken,
-        user: authenticatedUser,
+      debugPrint('[GOOGLE_LOGIN] Sending /auth/google-login request...');
+      final response = await _apiService.post(
+        '/auth/google-login',
+        data: {'idToken': idToken, 'fcmToken': fcmToken},
+        requiresAuth: false,
       );
+
+      final responseData = response as Map<String, dynamic>;
+      debugPrint('[GOOGLE_LOGIN] Backend response: $responseData');
+      final token =
+          responseData['token'] as String? ??
+          responseData['access_token'] as String?;
+      if (token == null || token.isEmpty) {
+        throw Exception('El backend no devolvió token de acceso');
+      }
+      jwtToken = token;
+      authenticatedUser = User.fromJson(
+        responseData['user'] as Map<String, dynamic>,
+      );
+      debugPrint('[GOOGLE_LOGIN] Parsed user: ${authenticatedUser.toJson()}');
+
+      await _persistSession(jwtToken: jwtToken, user: authenticatedUser);
 
       // Register FCM token with backend once authenticated.
       await _registerFcmToken();
@@ -116,11 +110,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
         status: AuthStatus.error,
         errorMessage: _firebaseAuthError(e),
       );
+    } on Failure catch (e) {
+      state = AuthState(status: AuthStatus.error, errorMessage: e.message);
     } catch (e) {
-      state = AuthState(
-        status: AuthStatus.error,
-        errorMessage: e.toString(),
-      );
+      state = AuthState(status: AuthStatus.error, errorMessage: e.toString());
     }
   }
 
@@ -130,17 +123,20 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       final fcmToken = await _firebaseMessaging.getToken();
 
-      final response = await _apiService.post(
-        '/auth/login',
-        data: {
-          'email': email,
-          'password': password,
-          'fcm_token': fcmToken,
-        },
-        requiresAuth: false,
-      ) as Map<String, dynamic>;
+      final response =
+          await _apiService.post(
+                '/auth/login',
+                data: {
+                  'email': email,
+                  'password': password,
+                  'fcm_token': fcmToken,
+                },
+                requiresAuth: false,
+              )
+              as Map<String, dynamic>;
 
-      final accessToken = response['access_token'] as String? ??
+      final accessToken =
+          response['access_token'] as String? ??
           response['token'] as String? ??
           '';
       if (accessToken.isEmpty) {
@@ -153,10 +149,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       await _registerFcmToken();
       _listenToTokenRefresh();
 
-      state = AuthState(
-        status: AuthStatus.authenticated,
-        user: user,
-      );
+      state = AuthState(status: AuthStatus.authenticated, user: user);
     } catch (e) {
       state = AuthState(
         status: AuthStatus.error,

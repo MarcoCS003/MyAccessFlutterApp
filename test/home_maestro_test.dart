@@ -35,9 +35,7 @@ void main() {
           ),
           notificationProvider.overrideWith((ref) => NotificationNotifier()),
         ],
-        child: const MaterialApp(
-          home: Scaffold(body: HomeMaestroScreen()),
-        ),
+        child: const MaterialApp(home: Scaffold(body: HomeMaestroScreen())),
       ),
     );
     await tester.pumpAndSettle();

@@ -50,10 +50,7 @@ void main() {
       await notifier.markAsRead(idToRead);
 
       expect(notifier.unreadCount, 1);
-      expect(
-        notifier.state.firstWhere((n) => n.id == idToRead).isRead,
-        isTrue,
-      );
+      expect(notifier.state.firstWhere((n) => n.id == idToRead).isRead, isTrue);
     });
 
     test('marcar todo como leído deja unreadCount en 0', () async {

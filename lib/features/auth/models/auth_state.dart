@@ -13,11 +13,7 @@ class AuthState {
     this.errorMessage,
   });
 
-  AuthState copyWith({
-    AuthStatus? status,
-    User? user,
-    String? errorMessage,
-  }) {
+  AuthState copyWith({AuthStatus? status, User? user, String? errorMessage}) {
     return AuthState(
       status: status ?? this.status,
       user: user ?? this.user,

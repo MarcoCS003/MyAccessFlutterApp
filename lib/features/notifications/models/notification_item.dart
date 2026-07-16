@@ -72,9 +72,11 @@ class NotificationItem {
     );
   }
 
-  String get title => event == 'check_in' ? 'Entrada registrada' : 'Salida registrada';
+  String get title =>
+      event == 'check_in' ? 'Entrada registrada' : 'Salida registrada';
 
-  String get body => '$studentName ${event == 'check_in' ? 'entró' : 'salió'} a las ${_formatTime(timestamp)}';
+  String get body =>
+      '$studentName ${event == 'check_in' ? 'entró' : 'salió'} a las ${_formatTime(timestamp)}';
 
   static String _formatTime(DateTime date) {
     final hour = date.hour.toString().padLeft(2, '0');

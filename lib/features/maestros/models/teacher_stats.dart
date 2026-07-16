@@ -10,11 +10,7 @@ class TeacherStats {
     this.totalCount = 0,
   });
 
-  TeacherStats copyWith({
-    int? todayCount,
-    int? weekCount,
-    int? totalCount,
-  }) {
+  TeacherStats copyWith({int? todayCount, int? weekCount, int? totalCount}) {
     return TeacherStats(
       todayCount: todayCount ?? this.todayCount,
       weekCount: weekCount ?? this.weekCount,

@@ -41,10 +41,6 @@ class _HomeRedirectState extends ConsumerState<HomeRedirect> {
       _performRedirect();
     });
 
-    return const Scaffold(
-      body: Center(
-        child: CircularProgressIndicator(),
-      ),
-    );
+    return const Scaffold(body: Center(child: CircularProgressIndicator()));
   }
 }

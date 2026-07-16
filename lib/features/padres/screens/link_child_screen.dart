@@ -130,49 +130,57 @@ class _LinkChildScreenState extends ConsumerState<LinkChildScreen>
                       return Center(
                         child: Padding(
                           padding: const EdgeInsets.all(24.0),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(
-                                Icons.error_outline,
-                                color: AppTheme.errorColor,
-                                size: 64,
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                'No se pudo iniciar la cámara',
-                                textAlign: TextAlign.center,
-                                style: GoogleFonts.poppins(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.white,
+                          child: Container(
+                            padding: const EdgeInsets.all(24.0),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.95),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.error_outline,
+                                  color: AppTheme.errorColor,
+                                  size: 64,
                                 ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                error.toString(),
-                                textAlign: TextAlign.center,
-                                style: GoogleFonts.inter(
-                                  fontSize: 13,
-                                  color: Colors.white70,
+                                const SizedBox(height: 16),
+                                Text(
+                                  'No se pudo iniciar la cámara',
+                                  textAlign: TextAlign.center,
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.black,
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(height: 24),
-                              ElevatedButton.icon(
-                                onPressed: () {
-                                  debugPrint(
-                                    '[MobileScanner] retrying start...',
-                                  );
-                                  _scannerController.start();
-                                },
-                                icon: const Icon(Icons.refresh),
-                                label: const Text('Reintentar'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppTheme.primaryColor,
-                                  foregroundColor: Colors.white,
+                                const SizedBox(height: 8),
+                                Text(
+                                  error.toString(),
+                                  textAlign: TextAlign.center,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 13,
+                                    color: Colors.black87,
+                                  ),
                                 ),
-                              ),
-                            ],
+                                const SizedBox(height: 24),
+                                ElevatedButton.icon(
+                                  onPressed: () {
+                                    debugPrint(
+                                      '[MobileScanner] retrying start...',
+                                    );
+                                    _scannerController.start();
+                                  },
+                                  icon: const Icon(Icons.refresh),
+                                  label: const Text('Reintentar'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppTheme.primaryColor,
+                                    foregroundColor: Colors.white,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       );

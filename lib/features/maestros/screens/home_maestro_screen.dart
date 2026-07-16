@@ -78,7 +78,9 @@ class HomeMaestroScreen extends ConsumerWidget {
                     const SizedBox(height: 14),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 5),
+                        horizontal: 14,
+                        vertical: 5,
+                      ),
                       decoration: BoxDecoration(
                         color: AppTheme.accentGoldColor,
                         borderRadius: BorderRadius.circular(20),
@@ -159,8 +161,10 @@ class HomeMaestroScreen extends ConsumerWidget {
                             color: AppTheme.borderLightColor,
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: const Icon(Icons.qr_code,
-                              color: AppTheme.textSecondaryColor),
+                          child: const Icon(
+                            Icons.qr_code,
+                            color: AppTheme.textSecondaryColor,
+                          ),
                         ),
                       const SizedBox(width: 16),
                       Expanded(
@@ -192,12 +196,14 @@ class HomeMaestroScreen extends ConsumerWidget {
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: AppTheme.primaryColor,
                                   side: const BorderSide(
-                                      color: AppTheme.primaryColor),
+                                    color: AppTheme.primaryColor,
+                                  ),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(10),
                                   ),
-                                  padding:
-                                      const EdgeInsets.symmetric(horizontal: 14),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                  ),
                                 ),
                                 child: Text(
                                   'Ver QR grande',
@@ -291,8 +297,7 @@ class HomeMaestroScreen extends ConsumerWidget {
                   final notification = entry.value;
                   return _TodayNotificationTile(
                     notification: notification,
-                    isLast:
-                        index == teacherState.todayNotifications.length - 1,
+                    isLast: index == teacherState.todayNotifications.length - 1,
                   );
                 }),
             ],

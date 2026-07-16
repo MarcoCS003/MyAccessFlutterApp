@@ -65,8 +65,11 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.qr_code_outlined,
-                          size: 80, color: AppTheme.borderLightColor),
+                      const Icon(
+                        Icons.qr_code_outlined,
+                        size: 80,
+                        color: AppTheme.borderLightColor,
+                      ),
                       const SizedBox(height: 16),
                       Text(
                         'Sin hijos vinculados',
@@ -110,30 +113,39 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
                             color: Colors.white,
                             margin: const EdgeInsets.only(bottom: 12),
                             shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16)),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
                             elevation: 0,
                             child: ListTile(
                               contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 6),
+                                horizontal: 16,
+                                vertical: 6,
+                              ),
                               leading: CircleAvatar(
                                 backgroundColor: AppTheme.lightGoldColor,
-                                child: const Icon(Icons.qr_code,
-                                    color: AppTheme.accentGoldColor),
+                                child: const Icon(
+                                  Icons.qr_code,
+                                  color: AppTheme.accentGoldColor,
+                                ),
                               ),
                               title: Text(
                                 child.name,
                                 style: GoogleFonts.inter(
-                                    fontWeight: FontWeight.bold,
-                                    color: AppTheme.textPrimaryColor),
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.textPrimaryColor,
+                                ),
                               ),
                               subtitle: Text(
                                 '${child.grade} - ${child.group}',
                                 style: GoogleFonts.inter(
-                                    fontSize: 13,
-                                    color: AppTheme.textSecondaryColor),
+                                  fontSize: 13,
+                                  color: AppTheme.textSecondaryColor,
+                                ),
                               ),
-                              trailing: const Icon(Icons.chevron_right,
-                                  color: AppTheme.textSecondaryColor),
+                              trailing: const Icon(
+                                Icons.chevron_right,
+                                color: AppTheme.textSecondaryColor,
+                              ),
                               onTap: () =>
                                   context.push('/child/${child.id}/qr'),
                             ),
@@ -155,10 +167,7 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
     ];
 
     return Scaffold(
-      body: IndexedStack(
-        index: _selectedIndex,
-        children: screens,
-      ),
+      body: IndexedStack(index: _selectedIndex, children: screens),
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
           boxShadow: [
@@ -181,10 +190,9 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
             backgroundColor: Colors.white,
             selectedItemColor: AppTheme.themeNavyColor,
             unselectedItemColor: AppTheme.textSecondaryColor,
-            selectedLabelStyle: Theme.of(context)
-                .textTheme
-                .labelSmall
-                ?.copyWith(fontWeight: FontWeight.bold),
+            selectedLabelStyle: Theme.of(
+              context,
+            ).textTheme.labelSmall?.copyWith(fontWeight: FontWeight.bold),
             unselectedLabelStyle: Theme.of(context).textTheme.labelSmall,
             items: [
               const BottomNavigationBarItem(
@@ -194,8 +202,10 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
               ),
               const BottomNavigationBarItem(
                 icon: Icon(Icons.qr_code_scanner_outlined),
-                activeIcon: Icon(Icons.qr_code_scanner,
-                    color: AppTheme.themeNavyColor),
+                activeIcon: Icon(
+                  Icons.qr_code_scanner,
+                  color: AppTheme.themeNavyColor,
+                ),
                 label: 'QR',
               ),
               BottomNavigationBarItem(
@@ -207,8 +217,10 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
                 activeIcon: Badge(
                   isLabelVisible: unreadCount > 0,
                   label: Text('$unreadCount'),
-                  child: const Icon(Icons.notifications,
-                      color: AppTheme.themeNavyColor),
+                  child: const Icon(
+                    Icons.notifications,
+                    color: AppTheme.themeNavyColor,
+                  ),
                 ),
                 label: 'Notis',
               ),

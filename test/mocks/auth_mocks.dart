@@ -17,13 +17,13 @@ class MockFlutterSecureStorage extends Mock implements FlutterSecureStorage {}
 
 class MockAuthNotifier extends AuthNotifier {
   MockAuthNotifier(AuthState initialState)
-      : super(
-          skipInitialCheck: true,
-          firebaseAuth: MockFirebaseAuth(),
-          googleSignIn: MockGoogleSignIn(),
-          firebaseMessaging: MockFirebaseMessaging(),
-          secureStorage: MockFlutterSecureStorage(),
-        ) {
+    : super(
+        skipInitialCheck: true,
+        firebaseAuth: MockFirebaseAuth(),
+        googleSignIn: MockGoogleSignIn(),
+        firebaseMessaging: MockFirebaseMessaging(),
+        secureStorage: MockFlutterSecureStorage(),
+      ) {
     state = initialState;
   }
 }

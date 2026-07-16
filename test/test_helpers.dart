@@ -41,7 +41,6 @@ class _NoOpChildrenNotifier extends ChildrenNotifier {
 
 /// Override para [childrenProvider] que evita llamadas de red en widget tests.
 /// El notificador inicia con una lista vacía de hijos.
-final emptyChildrenProviderOverride =
-    childrenProvider.overrideWith(
-      (ref) => _NoOpChildrenNotifier(),
-    );
+final emptyChildrenProviderOverride = childrenProvider.overrideWith(
+  (ref) => _NoOpChildrenNotifier(),
+);

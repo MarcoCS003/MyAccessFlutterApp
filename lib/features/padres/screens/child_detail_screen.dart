@@ -27,9 +27,8 @@ class _ChildDetailScreenState extends ConsumerState<ChildDetailScreen> {
     final childrenAsync = ref.watch(childrenProvider);
 
     return childrenAsync.when(
-      loading: () => const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      ),
+      loading: () =>
+          const Scaffold(body: Center(child: CircularProgressIndicator())),
       error: (e, _) => Scaffold(
         appBar: AppBar(title: const Text('Detalle')),
         body: Center(child: Text('Error: $e')),
@@ -239,15 +238,18 @@ class _ChildDetailContent extends ConsumerWidget {
                 children: List.generate(filters.length, (i) {
                   final selected = selectedFilter == i;
                   return Padding(
-                    padding:
-                        EdgeInsets.only(right: i < filters.length - 1 ? 10 : 0),
+                    padding: EdgeInsets.only(
+                      right: i < filters.length - 1 ? 10 : 0,
+                    ),
                     child: ChoiceChip(
                       label: Text(
                         filters[i],
                         style: GoogleFonts.inter(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
-                          color: selected ? Colors.white : AppTheme.primaryColor,
+                          color: selected
+                              ? Colors.white
+                              : AppTheme.primaryColor,
                         ),
                       ),
                       selected: selected,
@@ -296,7 +298,9 @@ class _ChildDetailContent extends ConsumerWidget {
                   return const Padding(
                     padding: EdgeInsets.all(32.0),
                     child: Center(
-                      child: Text('No hay eventos registrados para este período.'),
+                      child: Text(
+                        'No hay eventos registrados para este período.',
+                      ),
                     ),
                   );
                 }
@@ -304,8 +308,10 @@ class _ChildDetailContent extends ConsumerWidget {
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   itemCount: filtered.length,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 4,
+                  ),
                   itemBuilder: (context, index) {
                     final event = filtered[index];
                     return _TimelineEventTile(
@@ -403,11 +409,7 @@ class _TimelineEventTile extends StatelessWidget {
               child: Icon(eventIcon, color: eventColor, size: 18),
             ),
             if (!isLast)
-              Container(
-                width: 2,
-                height: 54,
-                color: AppTheme.borderLightColor,
-              ),
+              Container(width: 2, height: 54, color: AppTheme.borderLightColor),
           ],
         ),
         const SizedBox(width: 14),
@@ -435,7 +437,9 @@ class _TimelineEventTile extends StatelessWidget {
                   children: [
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 3),
+                        horizontal: 10,
+                        vertical: 3,
+                      ),
                       decoration: BoxDecoration(
                         color: eventColor.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(20),

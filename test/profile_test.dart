@@ -32,9 +32,7 @@ void main() {
             ),
           ),
         ],
-        child: const MaterialApp(
-          home: Scaffold(body: ProfileScreen()),
-        ),
+        child: const MaterialApp(home: Scaffold(body: ProfileScreen())),
       ),
     );
     await tester.pumpAndSettle();

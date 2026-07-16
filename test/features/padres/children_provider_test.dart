@@ -19,61 +19,60 @@ void main() {
   });
 
   group('ChildrenNotifier', () {
-    test('loadChildren carga hijos desde backend y los guarda en Hive',
-        () async {
-      final mockDio = MockDio();
-      configureMockDioOptions(mockDio);
-      final mockStorage = MockFlutterSecureStorage();
+    test(
+      'loadChildren carga hijos desde backend y los guarda en Hive',
+      () async {
+        final mockDio = MockDio();
+        configureMockDioOptions(mockDio);
+        final mockStorage = MockFlutterSecureStorage();
 
-      when(() => mockStorage.read(key: any(named: 'key')))
-          .thenAnswer((_) async => 'test_token');
+        when(
+          () => mockStorage.read(key: any(named: 'key')),
+        ).thenAnswer((_) async => 'test_token');
 
-      when(
-        () => mockDio.get(
-          '/user',
-          queryParameters: any(named: 'queryParameters'),
-          options: any(named: 'options'),
-        ),
-      ).thenAnswer(
-        (_) async => Response(
-          data: {
-            'students': [
-              {
-                'id': 1,
-                'name': 'Juan Pérez',
-                'grade': '3ro Primaria',
-                'group': 'A',
-                'status': 'inside',
-              },
-            ],
-          },
-          statusCode: 200,
-          requestOptions: RequestOptions(path: '/user'),
-        ),
-      );
+        when(
+          () => mockDio.get(
+            '/user',
+            queryParameters: any(named: 'queryParameters'),
+            options: any(named: 'options'),
+          ),
+        ).thenAnswer(
+          (_) async => Response(
+            data: {
+              'students': [
+                {
+                  'id': 1,
+                  'name': 'Juan Pérez',
+                  'grade': '3ro Primaria',
+                  'group': 'A',
+                  'status': 'inside',
+                },
+              ],
+            },
+            statusCode: 200,
+            requestOptions: RequestOptions(path: '/user'),
+          ),
+        );
 
-      final apiService = ApiService(
-        dio: mockDio,
-        secureStorage: mockStorage,
-      );
-      final notifier = ChildrenNotifier(
-        apiService: apiService,
-      );
+        final apiService = ApiService(dio: mockDio, secureStorage: mockStorage);
+        final notifier = ChildrenNotifier(apiService: apiService);
 
-      await notifier.loadChildren();
+        await notifier.loadChildren();
 
-      expect(notifier.state.hasValue, isTrue);
-      expect(notifier.state.value!.length, 1);
-      expect(notifier.state.value!.first.name, 'Juan Pérez');
-    });
+        expect(notifier.state.hasValue, isTrue);
+        expect(notifier.state.value!.length, 1);
+        expect(notifier.state.value!.first.name, 'Juan Pérez');
+      },
+    );
 
     test('linkChild agrega el nuevo hijo a la lista', () async {
       final mockDio = MockDio();
       configureMockDioOptions(mockDio);
       final mockStorage = MockFlutterSecureStorage();
 
-      when(() => mockStorage.read(key: any(named: 'key')))
-          .thenAnswer((_) async => 'test_token');
+      when(
+        () => mockStorage.read(key: any(named: 'key')),
+      ).thenAnswer((_) async => 'test_token');
 
       when(
         () => mockDio.post(
@@ -113,13 +112,8 @@ void main() {
         ),
       );
 
-      final apiService = ApiService(
-        dio: mockDio,
-        secureStorage: mockStorage,
-      );
-      final notifier = ChildrenNotifier(
-        apiService: apiService,
-      );
+      final apiService = ApiService(dio: mockDio, secureStorage: mockStorage);
+      final notifier = ChildrenNotifier(apiService: apiService);
       notifier.state = const AsyncValue.data([]);
 
       await notifier.linkChild('ABC123');
