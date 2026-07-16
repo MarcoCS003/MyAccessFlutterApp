@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/errors/failures.dart';
 import '../../../core/theme/theme.dart';
 import '../models/child.dart';
 import '../models/timeline_event.dart';
@@ -323,10 +324,108 @@ class _ChildDetailContent extends ConsumerWidget {
               },
             ),
             const SizedBox(height: 24),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: SizedBox(
+                height: 50,
+                child: OutlinedButton.icon(
+                  onPressed: () => _confirmUnlink(context, ref, child),
+                  icon: const Icon(Icons.link_off_rounded, color: AppTheme.errorColor),
+                  label: Text(
+                    'Desvincular alumno',
+                    style: GoogleFonts.inter(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.errorColor,
+                    ),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: AppTheme.errorColor),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _confirmUnlink(
+    BuildContext context,
+    WidgetRef ref,
+    Child child,
+  ) async {
+    final shouldUnlink = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          '¿Desvincular alumno?',
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+        ),
+        content: Text(
+          '¿Estás seguro de que deseas dejar de recibir notificaciones de ${child.name}?',
+          style: GoogleFonts.inter(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(
+              'Cancelar',
+              style: GoogleFonts.inter(color: AppTheme.textSecondaryColor),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(
+              'Desvincular',
+              style: GoogleFonts.inter(color: AppTheme.errorColor),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldUnlink != true || !context.mounted) return;
+
+    if (child.qrCode == null || child.qrCode!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('El alumno no tiene un código de referencia para desvincular.'),
+          backgroundColor: AppTheme.errorColor,
+        ),
+      );
+      return;
+    }
+
+    try {
+      await ref.read(childrenProvider.notifier).unlinkChild(child.qrCode!);
+      if (context.mounted) {
+        context.go('/home');
+      }
+    } on Failure catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.message),
+            backgroundColor: AppTheme.errorColor,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Error al desvincular alumno'),
+            backgroundColor: AppTheme.errorColor,
+          ),
+        );
+      }
+    }
   }
 }
 

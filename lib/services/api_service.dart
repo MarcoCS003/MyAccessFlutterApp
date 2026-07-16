@@ -130,6 +130,13 @@ class ApiService {
 
   String _extractMessage(dynamic data) {
     if (data is Map<String, dynamic>) {
+      final errors = data['errors'];
+      if (errors is Map<String, dynamic>) {
+        final firstList = errors.values.whereType<List>().firstOrNull;
+        if (firstList != null && firstList.isNotEmpty) {
+          return firstList.first.toString();
+        }
+      }
       if (data['message'] is String) {
         return data['message'];
       }

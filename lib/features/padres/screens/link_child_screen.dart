@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../../core/theme/theme.dart';
+import '../models/qr_code_data.dart';
 
 class LinkChildScreen extends ConsumerStatefulWidget {
   const LinkChildScreen({super.key});
@@ -23,6 +22,7 @@ class _LinkChildScreenState extends ConsumerState<LinkChildScreen>
   bool _isManualTab = false;
   String? _lastScannedCode;
   DateTime? _lastScanTime;
+  bool _isNavigating = false;
   late AnimationController _animationController;
 
   @override
@@ -32,16 +32,6 @@ class _LinkChildScreenState extends ConsumerState<LinkChildScreen>
       vsync: this,
       duration: const Duration(seconds: 2),
     )..repeat(reverse: true);
-
-    _scannerController.addListener(() {
-      final state = _scannerController.value;
-      debugPrint(
-        '[MobileScanner] isInitialized=${state.isInitialized}, '
-        'isRunning=${state.isRunning}, '
-        'size=${state.size}, '
-        'error=${state.error?.errorCode} | ${state.error?.errorDetails?.message}',
-      );
-    });
   }
 
   @override
@@ -52,26 +42,16 @@ class _LinkChildScreenState extends ConsumerState<LinkChildScreen>
     super.dispose();
   }
 
-  /// Normaliza el contenido leído del QR. El backend puede generar códigos
-  /// planos (ej. STU005) o con formato JSON ({"personId":"STU005","type":"student"}).
-  /// En cualquier caso, devolvemos el qr_code limpio.
-  String _sanitizeCode(String code) {
-    final trimmed = code.trim();
-
-    try {
-      final decoded = jsonDecode(trimmed) as Map<String, dynamic>?;
-      final personId = decoded?['personId'];
-      if (personId != null) {
-        return personId.toString().trim();
-      }
-    } catch (_) {
-      // No era JSON; usamos el valor crudo.
-    }
-
-    return trimmed;
+  /// Normaliza el contenido leído del QR. El backend genera códigos con
+  /// formato JSON: `{"idS": "123", "personId": "STU005", "type": "student"}`
+  /// donde `personId` es la referencia bancaria/qr_code del estudiante.
+  QrCodeData _parseQrData(String code) {
+    return QrCodeData.fromCode(code);
   }
 
   void _onQrDetected(BarcodeCapture capture) {
+    if (_isNavigating) return;
+
     final barcode = capture.barcodes.firstOrNull;
     final rawCode = barcode?.rawValue;
     if (rawCode == null || rawCode.isEmpty) return;
@@ -88,18 +68,37 @@ class _LinkChildScreenState extends ConsumerState<LinkChildScreen>
     debugPrint('[LinkChildScreen] QR detectado: $rawCode');
     HapticFeedback.lightImpact();
 
-    final code = _sanitizeCode(rawCode);
-    debugPrint('[LinkChildScreen] Código sanitizado: $code');
+    final qrData = _parseQrData(rawCode);
+    debugPrint(
+      '[LinkChildScreen] Código parseado: id=${qrData.id}, ref=${qrData.reference}',
+    );
 
-    if (code.isNotEmpty) {
-      _codeController.text = code;
-      _showConfirmation(code);
+    if (qrData.reference.isNotEmpty) {
+      _codeController.text = qrData.reference;
+      _showConfirmation(qrData);
     }
   }
 
-  void _showConfirmation(String code) {
-    if (code.trim().isEmpty) return;
-    context.push('/link-child/confirm?code=$code');
+  void _showConfirmation(QrCodeData qrData) async {
+    if (_isNavigating || qrData.reference.trim().isEmpty) return;
+    setState(() => _isNavigating = true);
+
+    await _scannerController.stop();
+
+    if (!mounted) return;
+    final idParam = qrData.id != null ? '&id=${qrData.id}' : '';
+    await context.push('/link-child/confirm?code=${qrData.reference}$idParam');
+
+    if (mounted) {
+      setState(() {
+        _isNavigating = false;
+        _lastScannedCode = null;
+        _lastScanTime = null;
+      });
+      if (!_isManualTab) {
+        await _scannerController.start();
+      }
+    }
   }
 
   @override
@@ -371,7 +370,9 @@ class _LinkChildScreenState extends ConsumerState<LinkChildScreen>
                                     const SizedBox(width: 12),
                                     ElevatedButton(
                                       onPressed: () => _showConfirmation(
-                                        _codeController.text,
+                                        QrCodeData.fromCode(
+                                          _codeController.text,
+                                        ),
                                       ),
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor:

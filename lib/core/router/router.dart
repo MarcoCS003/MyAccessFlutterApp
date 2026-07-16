@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/auth/providers/auth_provider.dart';
 import '../../features/auth/screens/login_screen.dart';
+import '../../features/auth/screens/register_screen.dart';
 import '../../features/padres/screens/link_child_screen.dart';
 import '../../features/padres/screens/link_child_confirm_screen.dart';
 import '../../features/padres/screens/child_detail_screen.dart';
@@ -17,14 +18,14 @@ final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: '/login',
     redirect: (context, state) {
-      final isLoggingIn = state.matchedLocation == '/login';
+      final isAuthRoute = state.matchedLocation == '/login' ||
+          state.matchedLocation == '/register';
 
       if (!authState.isAuthenticated) {
-        return isLoggingIn ? null : '/login';
+        return isAuthRoute ? null : '/login';
       }
 
-      // Si está autenticado e intenta ir a login, lo enviamos al redireccionador de home
-      if (isLoggingIn) {
+      if (isAuthRoute) {
         return '/home';
       }
 
@@ -32,6 +33,10 @@ final routerProvider = Provider<GoRouter>((ref) {
     },
     routes: [
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
+      GoRoute(
+        path: '/register',
+        builder: (context, state) => const RegisterScreen(),
+      ),
       GoRoute(
         path: '/home',
         builder: (context, state) => const MainNavigationScreen(),
@@ -48,7 +53,8 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/link-child/confirm',
         builder: (context, state) {
           final code = state.uri.queryParameters['code'] ?? '';
-          return LinkChildConfirmScreen(code: code);
+          final id = int.tryParse(state.uri.queryParameters['id'] ?? '');
+          return LinkChildConfirmScreen(code: code, id: id);
         },
       ),
       GoRoute(

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -56,9 +58,86 @@ class _ChildQrContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final firstName = child.name.split(' ').first;
-    // El QR codifica la referencia bancaria (qr_code) del estudiante. El lector
-    // del colegio escaneará este valor para registrar entradas y salidas.
-    final qrPayload = child.qrCode ?? child.id.toString();
+    final reference = child.qrCode;
+
+    if (reference == null || reference.isEmpty) {
+      return Scaffold(
+        backgroundColor: AppTheme.bgLightColor,
+        appBar: AppBar(
+          backgroundColor: AppTheme.primaryColor,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          title: Text(
+            firstName,
+            style: GoogleFonts.poppins(
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+            ),
+          ),
+          centerTitle: true,
+        ),
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.all(24.0),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.10),
+                      blurRadius: 24,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.error_outline_rounded,
+                      color: AppTheme.errorColor,
+                      size: 64,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'No hay referencia disponible',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.poppins(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textPrimaryColor,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'El estudiante no tiene un código QR/ referencia asignada.',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        color: AppTheme.textSecondaryColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // El QR codifica el mismo JSON que genera el backend, con idS y
+    // personId (referencia bancaria). El lector del colegio puede interpretar
+    // cualquiera de los dos valores.
+    final qrPayload = jsonEncode({
+      'idS': child.id.toString(),
+      'personId': reference,
+      'type': 'student',
+    });
 
     return Scaffold(
       backgroundColor: AppTheme.bgLightColor,

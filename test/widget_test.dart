@@ -28,7 +28,7 @@ void main() {
       find.text('Inicia sesión para recibir notificaciones de acceso.'),
       findsOneWidget,
     );
-    expect(find.text('Google (solo desarrollo)'), findsOneWidget);
+    expect(find.text('Regístrate'), findsOneWidget);
     expect(find.text('Iniciar sesión'), findsOneWidget);
   });
 }

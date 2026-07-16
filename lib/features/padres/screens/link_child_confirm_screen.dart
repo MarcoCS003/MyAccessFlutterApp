@@ -11,8 +11,9 @@ import '../widgets/child_card.dart';
 
 class LinkChildConfirmScreen extends ConsumerStatefulWidget {
   final String code;
+  final int? id;
 
-  const LinkChildConfirmScreen({super.key, required this.code});
+  const LinkChildConfirmScreen({super.key, required this.code, this.id});
 
   @override
   ConsumerState<LinkChildConfirmScreen> createState() =>
@@ -58,7 +59,8 @@ class _LinkChildConfirmScreenState
 
   @override
   Widget build(BuildContext context) {
-    final studentAsync = ref.watch(studentByQrProvider(widget.code));
+    final qrData = (id: widget.id, reference: widget.code);
+    final studentAsync = ref.watch(studentByQrProvider(qrData));
 
     return Scaffold(
       appBar: AppBar(

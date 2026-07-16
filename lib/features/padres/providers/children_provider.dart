@@ -108,6 +108,21 @@ class ChildrenNotifier extends StateNotifier<AsyncValue<List<Child>>> {
     }
   }
 
+  Future<void> unlinkChild(String code) async {
+    final previousState = state;
+
+    try {
+      await _apiService.post('/desvincular-alumno', data: {'codigo_alumno': code});
+      await loadChildren();
+    } catch (e) {
+      state = previousState;
+      if (e is Failure) {
+        rethrow;
+      }
+      throw ServerFailure('Error al desvincular alumno: ${e.toString()}');
+    }
+  }
+
   Future<void> _saveToHive(List<Child> children) async {
     try {
       final box = Hive.box(AppConstants.childrenBox);

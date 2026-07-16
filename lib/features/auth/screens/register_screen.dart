@@ -7,36 +7,45 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/theme.dart';
 import '../providers/auth_provider.dart';
 
-class LoginScreen extends ConsumerStatefulWidget {
-  const LoginScreen({super.key});
+class RegisterScreen extends ConsumerStatefulWidget {
+  const RegisterScreen({super.key});
 
   @override
-  ConsumerState<LoginScreen> createState() => _LoginScreenState();
+  ConsumerState<RegisterScreen> createState() => _RegisterScreenState();
 }
 
-class _LoginScreenState extends ConsumerState<LoginScreen> {
-  final _emailController = TextEditingController();
+class _RegisterScreenState extends ConsumerState<RegisterScreen> {
+  final _nameController = TextEditingController();
+  final _emailUsernameController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
 
   @override
   void dispose() {
-    _emailController.dispose();
+    _nameController.dispose();
+    _emailUsernameController.dispose();
     _passwordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
   }
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    final email = '${_emailUsernameController.text.trim()}@ijl.edu.mx';
     await ref
         .read(authProvider.notifier)
-        .signInWithEmailPassword(
-          _emailController.text.trim(),
-          _passwordController.text,
+        .signUp(
+          name: _nameController.text.trim(),
+          email: email,
+          password: _passwordController.text,
+          passwordConfirmation: _confirmPasswordController.text,
         );
   }
 
-  void _goToRegister() => context.go('/register');
+  void _goToLogin() => context.go('/login');
 
   @override
   Widget build(BuildContext context) {
@@ -45,16 +54,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final topPadding = MediaQuery.of(context).padding.top;
     final bottomPadding = MediaQuery.of(context).padding.bottom;
 
-    // Header height is 40% of the screen height
-    final headerHeight = size.height * 0.40;
-    // Card min height is 60% of the screen height, plus 24px overlap
-    final cardMinHeight = (size.height * 0.60) + 24;
+    final headerHeight = size.height * 0.35;
+    final cardMinHeight = (size.height * 0.65) + 24;
 
     return Scaffold(
       backgroundColor: AppTheme.bgLightColor,
       body: Stack(
         children: [
-          // 1. Navy Gradient Background (Top 40%)
           Positioned(
             top: 0,
             left: 0,
@@ -70,13 +76,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ),
             ),
           ),
-
-          // 2. Scrollable Body
           Positioned.fill(
             child: SingleChildScrollView(
               child: Column(
                 children: [
-                  // Transparent spacer matching header height minus overlap, containing header content
                   Container(
                     width: double.infinity,
                     height: max(0.0, headerHeight - 24),
@@ -84,7 +87,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        // School Shield / Logo (White/Monochrome version)
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
@@ -122,8 +124,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ],
                     ),
                   ),
-
-                  // White/Light Card (Bottom 60%)
                   Container(
                     width: double.infinity,
                     constraints: BoxConstraints(minHeight: cardMinHeight),
@@ -152,7 +152,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           Text(
-                            'Bienvenido',
+                            'Crear cuenta',
                             textAlign: TextAlign.center,
                             style: GoogleFonts.outfit(
                               fontSize: 24,
@@ -162,7 +162,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ),
                           const SizedBox(height: 12),
                           Text(
-                            'Inicia sesión para recibir notificaciones de acceso.',
+                            'Regístrate como padre/tutor para recibir notificaciones de acceso.',
                             textAlign: TextAlign.center,
                             style: GoogleFonts.inter(
                               fontSize: 14,
@@ -171,22 +171,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             ),
                           ),
                           const SizedBox(height: 32),
-
                           Form(
                             key: _formKey,
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
                                 TextFormField(
-                                  controller: _emailController,
-                                  keyboardType: TextInputType.emailAddress,
+                                  controller: _nameController,
                                   textInputAction: TextInputAction.next,
                                   enabled: !authState.isLoading,
                                   decoration: InputDecoration(
-                                    labelText: 'Correo electrónico',
-                                    hintText: 'tutor@ijl.edu.mx',
+                                    labelText: 'Nombre completo',
+                                    hintText: 'Juan Pérez',
                                     prefixIcon: const Icon(
-                                      Icons.email_outlined,
+                                      Icons.person_outline,
                                     ),
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(12),
@@ -194,30 +192,143 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                   ),
                                   validator: (value) {
                                     if (value == null || value.trim().isEmpty) {
-                                      return 'Ingresa tu correo';
-                                    }
-                                    if (!value.contains('@')) {
-                                      return 'Correo no válido';
+                                      return 'Ingresa tu nombre';
                                     }
                                     return null;
                                   },
                                 ),
                                 const SizedBox(height: 16),
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(
+                                      child: TextFormField(
+                                        controller: _emailUsernameController,
+                                        keyboardType:
+                                            TextInputType.emailAddress,
+                                        textInputAction: TextInputAction.next,
+                                        enabled: !authState.isLoading,
+                                        decoration: InputDecoration(
+                                          labelText: 'Usuario',
+                                          hintText: 'juan.perez',
+                                          prefixIcon: const Icon(
+                                            Icons.email_outlined,
+                                          ),
+                                          border: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
+                                          ),
+                                        ),
+                                        validator: (value) {
+                                          if (value == null ||
+                                              value.trim().isEmpty) {
+                                            return 'Ingresa tu usuario';
+                                          }
+                                          if (value.contains('@')) {
+                                            return 'Solo el nombre, sin @ijl.edu.mx';
+                                          }
+                                          if (value.contains(' ')) {
+                                            return 'El usuario no puede tener espacios';
+                                          }
+                                          return null;
+                                        },
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 14,
+                                        vertical: 16,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.borderLightColor
+                                            .withValues(alpha: 0.5),
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(
+                                          color: AppTheme.borderLightColor,
+                                        ),
+                                      ),
+                                      child: Text(
+                                        '@ijl.edu.mx',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppTheme.textPrimaryColor,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 16),
                                 TextFormField(
                                   controller: _passwordController,
-                                  obscureText: true,
-                                  textInputAction: TextInputAction.done,
+                                  obscureText: _obscurePassword,
+                                  textInputAction: TextInputAction.next,
                                   enabled: !authState.isLoading,
                                   decoration: InputDecoration(
                                     labelText: 'Contraseña',
                                     prefixIcon: const Icon(Icons.lock_outline),
+                                    suffixIcon: IconButton(
+                                      icon: Icon(
+                                        _obscurePassword
+                                            ? Icons.visibility_off
+                                            : Icons.visibility,
+                                      ),
+                                      onPressed: () {
+                                        setState(() {
+                                          _obscurePassword = !_obscurePassword;
+                                        });
+                                      },
+                                    ),
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(12),
                                     ),
                                   ),
                                   validator: (value) {
                                     if (value == null || value.isEmpty) {
-                                      return 'Ingresa tu contraseña';
+                                      return 'Ingresa una contraseña';
+                                    }
+                                    if (value.length < 8) {
+                                      return 'Mínimo 8 caracteres';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                                const SizedBox(height: 16),
+                                TextFormField(
+                                  controller: _confirmPasswordController,
+                                  obscureText: _obscureConfirmPassword,
+                                  textInputAction: TextInputAction.done,
+                                  enabled: !authState.isLoading,
+                                  decoration: InputDecoration(
+                                    labelText: 'Confirmar contraseña',
+                                    prefixIcon: const Icon(
+                                      Icons.lock_outline,
+                                    ),
+                                    suffixIcon: IconButton(
+                                      icon: Icon(
+                                        _obscureConfirmPassword
+                                            ? Icons.visibility_off
+                                            : Icons.visibility,
+                                      ),
+                                      onPressed: () {
+                                        setState(() {
+                                          _obscureConfirmPassword =
+                                              !_obscureConfirmPassword;
+                                        });
+                                      },
+                                    ),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                  validator: (value) {
+                                    if (value == null || value.isEmpty) {
+                                      return 'Confirma tu contraseña';
+                                    }
+                                    if (value != _passwordController.text) {
+                                      return 'Las contraseñas no coinciden';
                                     }
                                     return null;
                                   },
@@ -250,7 +361,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                               color: Colors.white,
                                             ),
                                           )
-                                        : const Text('Iniciar sesión'),
+                                        : const Text('Registrarse'),
                                   ),
                                 ),
                               ],
@@ -269,19 +380,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             ),
                           ],
                           const SizedBox(height: 24),
-
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Text(
-                                '¿No tienes cuenta? ',
+                                '¿Ya tienes cuenta? ',
                                 style: GoogleFonts.inter(
                                   fontSize: 14,
                                   color: AppTheme.textSecondaryColor,
                                 ),
                               ),
                               InkWell(
-                                onTap: authState.isLoading ? null : _goToRegister,
+                                onTap: authState.isLoading ? null : _goToLogin,
                                 borderRadius: BorderRadius.circular(4),
                                 child: Padding(
                                   padding: const EdgeInsets.symmetric(
@@ -289,7 +399,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                     vertical: 4,
                                   ),
                                   child: Text(
-                                    'Regístrate',
+                                    'Inicia sesión',
                                     style: GoogleFonts.inter(
                                       fontSize: 14,
                                       color: const Color(0xFF1B3A6B),
@@ -301,10 +411,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             ],
                           ),
                           const SizedBox(height: 60),
-
-                          // Terms and Conditions footer
                           Text(
-                            'Al iniciar sesión, aceptas nuestros términos y condiciones',
+                            'Al registrarte, aceptas nuestros términos y condiciones',
                             textAlign: TextAlign.center,
                             style: GoogleFonts.inter(
                               fontSize: 12,

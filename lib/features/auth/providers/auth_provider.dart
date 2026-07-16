@@ -1,11 +1,7 @@
-import 'dart:async';
-
-import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 import '../../../core/constants/app_constants.dart';
@@ -16,15 +12,11 @@ import '../models/user.dart';
 
 class AuthNotifier extends StateNotifier<AuthState> {
   AuthNotifier({
-    GoogleSignIn? googleSignIn,
-    firebase_auth.FirebaseAuth? firebaseAuth,
     FirebaseMessaging? firebaseMessaging,
     FlutterSecureStorage? secureStorage,
     ApiService? apiService,
     bool skipInitialCheck = false,
-  }) : _googleSignIn = googleSignIn ?? GoogleSignIn(),
-       _firebaseAuth = firebaseAuth ?? firebase_auth.FirebaseAuth.instance,
-       _firebaseMessaging = firebaseMessaging ?? FirebaseMessaging.instance,
+  }) : _firebaseMessaging = firebaseMessaging ?? FirebaseMessaging.instance,
        _secureStorage = secureStorage ?? const FlutterSecureStorage(),
        _apiService = apiService ?? ApiService(),
        super(const AuthState()) {
@@ -33,89 +25,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  final GoogleSignIn _googleSignIn;
-  final firebase_auth.FirebaseAuth _firebaseAuth;
   final FirebaseMessaging _firebaseMessaging;
   final FlutterSecureStorage _secureStorage;
   final ApiService _apiService;
-
-  Future<void> signInWithGoogle() async {
-    try {
-      state = state.copyWith(status: AuthStatus.loading, errorMessage: null);
-
-      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
-      if (googleUser == null) {
-        state = state.copyWith(status: AuthStatus.unauthenticated);
-        return;
-      }
-
-      final GoogleSignInAuthentication googleAuth =
-          await googleUser.authentication;
-      final credential = firebase_auth.GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: googleAuth.idToken,
-      );
-
-      final firebaseUser = await _firebaseAuth.signInWithCredential(credential);
-      final idToken = await firebaseUser.user?.getIdToken();
-
-      if (idToken == null) {
-        throw Exception('No se pudo obtener idToken de Firebase');
-      }
-
-      debugPrint('[GOOGLE_LOGIN] Firebase idToken length: ${idToken.length}');
-      debugPrint(
-        '[GOOGLE_LOGIN] Firebase idToken prefix: ${idToken.substring(0, idToken.length > 20 ? 20 : idToken.length)}',
-      );
-
-      final fcmToken = await _firebaseMessaging.getToken();
-      debugPrint('[GOOGLE_LOGIN] FCM token: $fcmToken');
-
-      User authenticatedUser;
-      String jwtToken;
-
-      debugPrint('[GOOGLE_LOGIN] Sending /auth/google-login request...');
-      final response = await _apiService.post(
-        '/auth/google-login',
-        data: {'idToken': idToken, 'fcmToken': fcmToken},
-        requiresAuth: false,
-      );
-
-      final responseData = response as Map<String, dynamic>;
-      debugPrint('[GOOGLE_LOGIN] Backend response: $responseData');
-      final token =
-          responseData['token'] as String? ??
-          responseData['access_token'] as String?;
-      if (token == null || token.isEmpty) {
-        throw Exception('El backend no devolvió token de acceso');
-      }
-      jwtToken = token;
-      authenticatedUser = User.fromJson(
-        responseData['user'] as Map<String, dynamic>,
-      );
-      debugPrint('[GOOGLE_LOGIN] Parsed user: ${authenticatedUser.toJson()}');
-
-      await _persistSession(jwtToken: jwtToken, user: authenticatedUser);
-
-      // Register FCM token with backend once authenticated.
-      await _registerFcmToken();
-      _listenToTokenRefresh();
-
-      state = AuthState(
-        status: AuthStatus.authenticated,
-        user: authenticatedUser,
-      );
-    } on firebase_auth.FirebaseAuthException catch (e) {
-      state = AuthState(
-        status: AuthStatus.error,
-        errorMessage: _firebaseAuthError(e),
-      );
-    } on Failure catch (e) {
-      state = AuthState(status: AuthStatus.error, errorMessage: e.message);
-    } catch (e) {
-      state = AuthState(status: AuthStatus.error, errorMessage: e.toString());
-    }
-  }
 
   Future<void> signInWithEmailPassword(String email, String password) async {
     try {
@@ -135,10 +47,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
               )
               as Map<String, dynamic>;
 
-      final accessToken =
-          response['access_token'] as String? ??
-          response['token'] as String? ??
-          '';
+      final accessToken = response['access_token'] as String? ?? '';
       if (accessToken.isEmpty) {
         throw Exception('El backend no devolvió token de acceso');
       }
@@ -150,10 +59,60 @@ class AuthNotifier extends StateNotifier<AuthState> {
       _listenToTokenRefresh();
 
       state = AuthState(status: AuthStatus.authenticated, user: user);
+    } on Failure catch (e) {
+      state = AuthState(status: AuthStatus.error, errorMessage: e.message);
     } catch (e) {
       state = AuthState(
         status: AuthStatus.error,
         errorMessage: 'Credenciales incorrectas o error del servidor',
+      );
+    }
+  }
+
+  Future<void> signUp({
+    required String name,
+    required String email,
+    required String password,
+    required String passwordConfirmation,
+  }) async {
+    try {
+      state = state.copyWith(status: AuthStatus.loading, errorMessage: null);
+
+      final fcmToken = await _firebaseMessaging.getToken();
+
+      final response =
+          await _apiService.post(
+                '/auth/register',
+                data: {
+                  'name': name,
+                  'email': email,
+                  'password': password,
+                  'password_confirmation': passwordConfirmation,
+                  'role': AppConstants.roleParent,
+                  'fcm_token': fcmToken,
+                },
+                requiresAuth: false,
+              )
+              as Map<String, dynamic>;
+
+      final accessToken = response['access_token'] as String? ?? '';
+      if (accessToken.isEmpty) {
+        throw Exception('El backend no devolvió token de acceso');
+      }
+
+      final user = User.fromJson(response['user'] as Map<String, dynamic>);
+
+      await _persistSession(jwtToken: accessToken, user: user);
+      await _registerFcmToken();
+      _listenToTokenRefresh();
+
+      state = AuthState(status: AuthStatus.authenticated, user: user);
+    } on Failure catch (e) {
+      state = AuthState(status: AuthStatus.error, errorMessage: e.message);
+    } catch (e) {
+      state = AuthState(
+        status: AuthStatus.error,
+        errorMessage: 'Error al registrar. Verifica tus datos.',
       );
     }
   }
@@ -165,8 +124,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
       await Hive.box(AppConstants.childrenBox).clear();
       await Hive.box(AppConstants.notificationsBox).clear();
       await Hive.box(AppConstants.settingsBox).clear();
-      await _firebaseAuth.signOut();
-      await _googleSignIn.signOut();
       state = const AuthState(status: AuthStatus.unauthenticated);
     } catch (e) {
       state = AuthState(
@@ -232,21 +189,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
         debugPrint('Failed to register refreshed FCM token: $e');
       }
     });
-  }
-
-  String _firebaseAuthError(firebase_auth.FirebaseAuthException e) {
-    switch (e.code) {
-      case 'account-exists-with-different-credential':
-        return 'Esta cuenta ya existe con otro método de inicio de sesión.';
-      case 'invalid-credential':
-        return 'Credencial inválida o expirada.';
-      case 'user-disabled':
-        return 'Esta cuenta ha sido deshabilitada.';
-      case 'operation-not-allowed':
-        return 'Operación no permitida.';
-      default:
-        return 'Error de autenticación: ${e.message}';
-    }
   }
 }
 
