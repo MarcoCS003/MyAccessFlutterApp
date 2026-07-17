@@ -120,7 +120,7 @@ class _LinkChildScreenState extends ConsumerState<LinkChildScreen>
                     controller: _scannerController,
                     onDetect: _onQrDetected,
                     fit: BoxFit.cover,
-                    errorBuilder: (context, error, child) {
+                    errorBuilder: (context, error) {
                       debugPrint(
                         '[MobileScanner] errorBuilder: ${error.errorCode} | '
                         '${error.errorDetails?.message} | '
