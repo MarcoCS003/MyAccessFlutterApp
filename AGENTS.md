@@ -27,7 +27,17 @@
   - Android: `android/app/google-services.json` (package `com.jmoreno.riverboldbrave`).
   - iOS: `ios/Runner/GoogleService-Info.plist` (bundle `com.ijl.clienteFlutterMyaccess`).
   - Dart options: `lib/firebase_options.dart`.
-- **No API service layer exists yet.** `lib/services/`, `lib/data/datasources/remote/`, and `lib/data/models/` are empty.
+- **No API service layer exists yet.** `lib/services/` only has `api_service.dart` (Dio) and `local_notifications_service.dart`; `lib/data/datasources/remote/` and `lib/data/models/` are empty.
+
+## FCM Notifications (source of truth is local)
+
+- **Every FCM message is persisted to Hive** (`notifications_box`) through `lib/features/notifications/data/notification_local_store.dart` — both the foreground listener and the background handler use it, with dedupe by `NotificationItem.id` (`studentId_event_timestamp`).
+- **`notificationProvider` feeds the UI**: notifications screen, `childrenWithActivityProvider` (single provider for ChildCard/status in `home_padre_screen` and `child_detail_screen`) and `childTimelineProvider` (detail history/stats). Child status/timeline come from the local DB, NOT from new backend calls.
+- **System tray notifications** are shown via `flutter_local_notifications` (`lib/services/local_notifications_service.dart`, channel `attendance_channel`) for foreground and background data-only messages.
+- `main.dart` reloads the provider from Hive on `AppLifecycleState.resumed`, and persists tapped tray notifications via `onMessageOpenedApp`/`getInitialMessage`.
+- `main.dart` also calls `initializeDateFormatting('es')` at startup — required by the `DateFormat(..., 'es')` usages in the child detail timeline; without it they throw `LocaleDataException`.
+- FCM `timestamp` values are parsed with `.toLocal()` in `NotificationItem.fromFcm` — backend UTC timestamps must not be compared raw against local "today".
+- `recentActivityProvider` and the Home "Actividad reciente" section were removed (redundant with `child_detail_screen`).
 
 ## Theming
 
@@ -81,6 +91,7 @@ flutter build apk --release
 ## Android Build Notes
 
 - `android/app/build.gradle.kts` uses Java/Kotlin **JVM 17**.
+- **Core library desugaring is enabled** (`isCoreLibraryDesugaringEnabled` + `desugar_jdk_libs`) — required by `flutter_local_notifications`; do not remove.
 - Package name: `com.jmoreno.riverboldbrave` (matches the existing Firebase Android app).
 - Release builds currently sign with the debug key (TODO in config).
 

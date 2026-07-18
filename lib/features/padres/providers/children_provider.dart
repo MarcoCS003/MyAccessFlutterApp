@@ -5,6 +5,8 @@ import 'package:hive_flutter/hive_flutter.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/errors/failures.dart';
 import '../../../services/api_service.dart';
+import '../../notifications/models/notification_item.dart';
+import '../../notifications/providers/notification_provider.dart';
 import '../models/child.dart';
 import '../models/timeline_event.dart';
 
@@ -13,38 +15,81 @@ final childrenProvider =
       return ChildrenNotifier();
     });
 
+bool _isToday(DateTime d) {
+  final now = DateTime.now();
+  return d.year == now.year && d.month == now.month && d.day == now.day;
+}
+
+/// ÚNICO provider que las pantallas usan para mostrar hijos: roster del
+/// backend (cargado una sola vez) + estado calculado desde la BD local
+/// de notificaciones. No genera peticiones extra al backend.
+final childrenWithActivityProvider = Provider<AsyncValue<List<Child>>>((ref) {
+  final childrenAsync = ref.watch(childrenProvider);
+  final notifications = ref.watch(notificationProvider);
+
+  // Último evento por alumno, calculado en memoria desde la BD local.
+  final latest = <int, NotificationItem>{};
+  for (final n in notifications) {
+    final prev = latest[n.studentId];
+    if (prev == null || n.timestamp.isAfter(prev.timestamp)) {
+      latest[n.studentId] = n;
+    }
+  }
+
+  return childrenAsync.whenData((children) {
+    return children.map((child) {
+      final event = latest[child.id];
+      if (event == null) return child;
+      final isEntry = event.event == 'check_in';
+      final isToday = _isToday(event.timestamp);
+      debugPrint(
+        '[OVERLAY] child=${child.id} eventStudent=${event.studentId} '
+        'event=${event.event} ts=${event.timestamp} isToday=$isToday',
+      );
+      if (isToday) {
+        // Evento de hoy: define estado + texto + hora.
+        return child.copyWith(
+          status: isEntry ? 'inside' : 'outside',
+          lastEvent: isEntry ? 'Última entrada' : 'Última salida',
+          lastEventTime: event.timestamp,
+        );
+      }
+      // Evento de días anteriores: NO cambia el estado, pero si el backend
+      // no trae último evento, el card muestra el último de la BD local.
+      if (child.lastEvent == null) {
+        return child.copyWith(
+          lastEvent: isEntry ? 'Última entrada' : 'Última salida',
+          lastEventTime: event.timestamp,
+        );
+      }
+      return child;
+    }).toList();
+  });
+});
+
+/// Historial de accesos del alumno construido desde la BD local de
+/// notificaciones (el backend no expone endpoint de asistencias).
 final childTimelineProvider = FutureProvider.family<List<TimelineEvent>, int>((
   ref,
   childId,
-) async {
-  // El backend actual no expone un endpoint de asistencias por estudiante.
-  // Se deja como lista vacía para evitar errores 404; cuando exista el
-  // endpoint, reemplazar por la llamada real a
-  // `/students/$childId/attendances`.
-  return <TimelineEvent>[];
+) {
+  final notifications = ref.watch(notificationProvider);
+  final events =
+      notifications
+          .where((n) => n.studentId == childId)
+          .map(
+            (n) => TimelineEvent(
+              id: n.id.hashCode,
+              type: n.event,
+              recordedAt: n.timestamp,
+              location: n.location,
+              studentId: n.studentId,
+            ),
+          )
+          .toList()
+        ..sort((a, b) => b.recordedAt.compareTo(a.recordedAt));
+  return events;
 });
-
-/// Combina los timelines de todos los hijos vinculados para mostrar la
-/// actividad reciente en el home del padre.
-final recentActivityProvider =
-    FutureProvider<List<(TimelineEvent event, String childName)>>((ref) async {
-      final childrenAsync = ref.watch(childrenProvider);
-      final children = childrenAsync.valueOrNull ?? [];
-      if (children.isEmpty) return [];
-
-      final timelines = await Future.wait(
-        children.map((child) async {
-          final events = await ref.watch(
-            childTimelineProvider(child.id).future,
-          );
-          return events.map((e) => (e, child.name)).toList();
-        }),
-      );
-
-      final allEvents = timelines.expand((events) => events).toList();
-      allEvents.sort((a, b) => b.$1.recordedAt.compareTo(a.$1.recordedAt));
-      return allEvents.take(10).toList();
-    });
 
 class ChildrenNotifier extends StateNotifier<AsyncValue<List<Child>>> {
   ChildrenNotifier({ApiService? apiService})

@@ -25,7 +25,7 @@ class _ChildDetailScreenState extends ConsumerState<ChildDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final childrenAsync = ref.watch(childrenProvider);
+    final childrenAsync = ref.watch(childrenWithActivityProvider);
 
     return childrenAsync.when(
       loading: () =>

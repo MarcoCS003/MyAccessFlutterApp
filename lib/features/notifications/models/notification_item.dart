@@ -6,6 +6,7 @@ class NotificationItem {
   final int studentId;
   final DateTime timestamp;
   final bool isRead;
+  final String? location;
 
   const NotificationItem({
     required this.id,
@@ -15,6 +16,7 @@ class NotificationItem {
     required this.studentId,
     required this.timestamp,
     this.isRead = false,
+    this.location,
   });
 
   NotificationItem copyWith({
@@ -25,6 +27,7 @@ class NotificationItem {
     int? studentId,
     DateTime? timestamp,
     bool? isRead,
+    String? location,
   }) {
     return NotificationItem(
       id: id ?? this.id,
@@ -34,6 +37,7 @@ class NotificationItem {
       studentId: studentId ?? this.studentId,
       timestamp: timestamp ?? this.timestamp,
       isRead: isRead ?? this.isRead,
+      location: location ?? this.location,
     );
   }
 
@@ -44,7 +48,10 @@ class NotificationItem {
       event: data['event'] ?? 'check_in',
       studentName: data['student_name'] ?? 'Alumno',
       studentId: int.tryParse(data['student_id']?.toString() ?? '0') ?? 0,
-      timestamp: DateTime.tryParse(data['timestamp'] ?? '') ?? DateTime.now(),
+      timestamp:
+          DateTime.tryParse(data['timestamp'] ?? '')?.toLocal() ??
+          DateTime.now(),
+      location: data['location'] as String?,
     );
   }
 
@@ -57,6 +64,7 @@ class NotificationItem {
       'studentId': studentId,
       'timestamp': timestamp.toIso8601String(),
       'isRead': isRead,
+      'location': location,
     };
   }
 
@@ -69,6 +77,7 @@ class NotificationItem {
       studentId: json['studentId'] as int,
       timestamp: DateTime.parse(json['timestamp'] as String),
       isRead: json['isRead'] as bool? ?? false,
+      location: json['location'] as String?,
     );
   }
 

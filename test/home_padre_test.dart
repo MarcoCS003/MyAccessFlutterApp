@@ -33,5 +33,6 @@ void main() {
       ),
     );
     expect(find.text('Tus hijos vinculados'), findsOneWidget);
+    expect(find.text('Actividad reciente'), findsNothing);
   });
 }

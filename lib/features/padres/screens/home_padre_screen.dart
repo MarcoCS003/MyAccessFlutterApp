@@ -5,7 +5,6 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/theme.dart';
 import '../../auth/providers/auth_provider.dart';
-import '../models/timeline_event.dart';
 import '../providers/children_provider.dart';
 import '../widgets/child_card.dart';
 
@@ -16,7 +15,7 @@ class HomePadreScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authProvider);
-    final childrenAsync = ref.watch(childrenProvider);
+    final childrenAsync = ref.watch(childrenWithActivityProvider);
 
     if (showQrSelector) {
       return Scaffold(
@@ -190,61 +189,6 @@ class HomePadreScreen extends ConsumerWidget {
                             .toList(),
                       ),
               ),
-              const SizedBox(height: 24),
-              Text(
-                'Actividad reciente',
-                style: GoogleFonts.poppins(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.primaryColor,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Consumer(
-                builder: (context, ref, _) {
-                  final recentAsync = ref.watch(recentActivityProvider);
-                  return recentAsync.when(
-                    loading: () => const Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(24.0),
-                        child: CircularProgressIndicator(),
-                      ),
-                    ),
-                    error: (e, _) => Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 16.0),
-                      child: Text(
-                        'No se pudo cargar la actividad reciente.',
-                        style: GoogleFonts.inter(
-                          color: AppTheme.textSecondaryColor,
-                        ),
-                      ),
-                    ),
-                    data: (events) {
-                      if (events.isEmpty) {
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 16.0),
-                          child: Text(
-                            'Aún no hay actividad registrada.',
-                            style: GoogleFonts.inter(
-                              color: AppTheme.textSecondaryColor,
-                            ),
-                          ),
-                        );
-                      }
-                      return Column(
-                        children: events.asMap().entries.map((entry) {
-                          final (event, childName) = entry.value;
-                          return _RecentEventTile(
-                            event: event,
-                            childName: childName,
-                            isLast: entry.key == events.length - 1,
-                          );
-                        }).toList(),
-                      );
-                    },
-                  );
-                },
-              ),
             ],
           ),
         ),
@@ -281,109 +225,6 @@ class HomePadreScreen extends ConsumerWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _RecentEventTile extends StatelessWidget {
-  final TimelineEvent event;
-  final String childName;
-  final bool isLast;
-
-  const _RecentEventTile({
-    required this.event,
-    required this.childName,
-    required this.isLast,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isEntry = event.type == 'check_in';
-    final iconColor = isEntry ? AppTheme.successColor : Colors.orange;
-    final icon = isEntry ? Icons.login_rounded : Icons.logout_rounded;
-    final title = isEntry ? 'Entrada registrada' : 'Salida registrada';
-    final firstName = childName.split(' ').first;
-    final location = event.location?.isNotEmpty == true
-        ? event.location!
-        : 'Puerta Principal';
-
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Column(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: AppTheme.borderLightColor),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0x0A002452),
-                      blurRadius: 4,
-                      offset: Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Icon(icon, color: iconColor, size: 20),
-              ),
-              if (!isLast)
-                Expanded(
-                  child: Container(width: 2, color: AppTheme.borderLightColor),
-                ),
-            ],
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Container(
-              margin: const EdgeInsets.only(bottom: 16),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: AppTheme.borderLightColor.withValues(alpha: 0.5),
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        title,
-                        style: GoogleFonts.inter(
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.textPrimaryColor,
-                        ),
-                      ),
-                      Text(
-                        event.time,
-                        style: GoogleFonts.inter(
-                          fontSize: 12,
-                          color: AppTheme.textSecondaryColor,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '$firstName ${isEntry ? 'ingresó' : 'salió'} por $location',
-                    style: GoogleFonts.inter(
-                      fontSize: 13,
-                      color: AppTheme.textSecondaryColor,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }

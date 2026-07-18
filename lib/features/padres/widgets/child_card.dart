@@ -17,8 +17,7 @@ class ChildCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isPresent = child.status == 'inside';
     final lastEventText =
-        child.lastEvent ??
-        (isPresent ? 'Última entrada: 07:45 AM' : 'Aún no ingresa');
+        child.lastEvent ?? (isPresent ? 'En el colegio' : 'Aún no ingresa');
     final lastEventTime = child.lastEventTime != null
         ? DateFormat('dd/MM/yyyy HH:mm').format(child.lastEventTime!)
         : '';

@@ -1,8 +1,7 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:hive_flutter/hive_flutter.dart';
 
-import '../../../core/constants/app_constants.dart';
+import '../data/notification_local_store.dart';
 import '../models/notification_item.dart';
 
 final notificationProvider =
@@ -11,63 +10,62 @@ final notificationProvider =
     });
 
 class NotificationNotifier extends StateNotifier<List<NotificationItem>> {
-  NotificationNotifier() : super([]) {
-    _loadFromHive();
+  NotificationNotifier({NotificationLocalStore? store})
+    : _store = store ?? NotificationLocalStore(),
+      super([]) {
+    reloadFromLocal();
   }
 
-  Future<void> _loadFromHive() async {
-    try {
-      final box = Hive.box(AppConstants.notificationsBox);
-      final items = box.get('items', defaultValue: <Map<dynamic, dynamic>>[]);
-      state = (items as List)
-          .map((e) => NotificationItem.fromJson(Map<String, dynamic>.from(e)))
-          .toList();
-    } catch (e) {
-      debugPrint('Error loading notifications from Hive: $e');
-      state = [];
-    }
+  final NotificationLocalStore _store;
+
+  /// Relee Hive. Llamar al volver a primer plano: cubre lo que el handler
+  /// de background escribió mientras la app estaba en segundo plano.
+  void reloadFromLocal() {
+    state = _store.load();
+    debugPrint('[NOTIF] reloadFromLocal: ${state.length} items desde Hive');
   }
 
-  Future<void> addFromFcm(Map<String, dynamic> data) async {
-    final notification = NotificationItem.fromFcm(data);
-    state = [notification, ...state];
-    await _saveToHive();
-  }
+  /// Devuelve true si la notificación era nueva (no duplicada por id).
+  Future<bool> addFromFcm(Map<String, dynamic> data) =>
+      addNotification(NotificationItem.fromFcm(data));
 
-  Future<void> addNotification(NotificationItem notification) async {
-    state = [notification, ...state];
-    await _saveToHive();
+  /// Devuelve true si la notificación era nueva.
+  Future<bool> addNotification(NotificationItem notification) async {
+    // Merge con Hive antes de guardar: no pisa items escritos por el
+    // isolate de background mientras la app estaba en segundo plano.
+    final persisted = _store.load();
+    final isNew =
+        !persisted.any((n) => n.id == notification.id) &&
+        !state.any((n) => n.id == notification.id);
+    state = NotificationLocalStore.dedupeAndSort([
+      notification,
+      ...persisted,
+      ...state,
+    ]);
+    await _store.saveAll(state);
+    return isNew;
   }
 
   Future<void> markAsRead(String id) async {
     state = state
         .map((n) => n.id == id ? n.copyWith(isRead: true) : n)
         .toList();
-    await _saveToHive();
+    await _store.saveAll(state);
   }
 
   Future<void> markAllAsRead() async {
     state = state.map((n) => n.copyWith(isRead: true)).toList();
-    await _saveToHive();
+    await _store.saveAll(state);
   }
 
   Future<void> dismiss(String id) async {
     state = state.where((n) => n.id != id).toList();
-    await _saveToHive();
+    await _store.saveAll(state);
   }
 
   Future<void> clearAll() async {
     state = [];
-    await _saveToHive();
-  }
-
-  Future<void> _saveToHive() async {
-    try {
-      final box = Hive.box(AppConstants.notificationsBox);
-      await box.put('items', state.map((n) => n.toJson()).toList());
-    } catch (e) {
-      debugPrint('Error saving notifications to Hive: $e');
-    }
+    await _store.saveAll(state);
   }
 
   int get unreadCount => state.where((n) => !n.isRead).length;
