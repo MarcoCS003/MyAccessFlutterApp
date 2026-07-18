@@ -5,56 +5,118 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/theme.dart';
-import '../providers/auth_provider.dart';
+import '../providers/password_recovery_provider.dart';
 
-class LoginScreen extends ConsumerStatefulWidget {
-  const LoginScreen({super.key});
+class ResetPasswordScreen extends ConsumerStatefulWidget {
+  final String email;
+
+  const ResetPasswordScreen({super.key, required this.email});
 
   @override
-  ConsumerState<LoginScreen> createState() => _LoginScreenState();
+  ConsumerState<ResetPasswordScreen> createState() =>
+      _ResetPasswordScreenState();
 }
 
-class _LoginScreenState extends ConsumerState<LoginScreen> {
-  final _emailController = TextEditingController();
+class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
+  final _codeController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
 
   @override
   void dispose() {
-    _emailController.dispose();
+    _codeController.dispose();
     _passwordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
+  }
+
+  String? _validatePassword(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Ingresa una contraseña';
+    }
+    if (value.length < 12) {
+      return 'Mínimo 12 caracteres';
+    }
+    if (!RegExp(r'[A-Z]').hasMatch(value)) {
+      return 'Debe incluir al menos una mayúscula';
+    }
+    if (!RegExp(r'[a-z]').hasMatch(value)) {
+      return 'Debe incluir al menos una minúscula';
+    }
+    if (!RegExp(r'[0-9]').hasMatch(value)) {
+      return 'Debe incluir al menos un número';
+    }
+    if (!RegExp(r'[^A-Za-z0-9]').hasMatch(value)) {
+      return 'Debe incluir al menos un símbolo';
+    }
+    return null;
   }
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    await ref
-        .read(authProvider.notifier)
-        .signInWithEmailPassword(
-          _emailController.text.trim(),
-          _passwordController.text,
+    final success = await ref
+        .read(passwordRecoveryProvider.notifier)
+        .resetPassword(
+          email: widget.email,
+          token: _codeController.text.trim(),
+          password: _passwordController.text,
+          passwordConfirmation: _confirmPasswordController.text,
         );
+    if (success && mounted) {
+      final message =
+          ref.read(passwordRecoveryProvider).successMessage ??
+          'Contraseña restablecida exitosamente.';
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) => AlertDialog(
+          title: Text(
+            'Contraseña actualizada',
+            style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
+          ),
+          content: Text(message, style: GoogleFonts.inter()),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Aceptar'),
+            ),
+          ],
+        ),
+      );
+      if (mounted) {
+        ref.read(passwordRecoveryProvider.notifier).reset();
+        context.go('/login');
+      }
+    }
   }
 
-  void _goToRegister() => context.go('/register');
+  void _goToForgotPassword() {
+    ref.read(passwordRecoveryProvider.notifier).reset();
+    context.go('/forgot-password');
+  }
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(authProvider);
+    final recoveryState = ref.watch(passwordRecoveryProvider);
     final size = MediaQuery.of(context).size;
     final topPadding = MediaQuery.of(context).padding.top;
     final bottomPadding = MediaQuery.of(context).padding.bottom;
 
-    // Header height is 40% of the screen height
-    final headerHeight = size.height * 0.40;
-    // Card min height is 60% of the screen height, plus 24px overlap
-    final cardMinHeight = (size.height * 0.60) + 24;
+    final headerHeight = size.height * 0.30;
+    final cardMinHeight = (size.height * 0.70) + 24;
+
+    final codeError =
+        recoveryState.fieldErrors['email'] ??
+        recoveryState.fieldErrors['token'];
+    final passwordError = recoveryState.fieldErrors['password'];
 
     return Scaffold(
       backgroundColor: AppTheme.bgLightColor,
       body: Stack(
         children: [
-          // 1. Navy Gradient Background (Top 40%)
           Positioned(
             top: 0,
             left: 0,
@@ -70,13 +132,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ),
             ),
           ),
-
-          // 2. Scrollable Body
           Positioned.fill(
             child: SingleChildScrollView(
               child: Column(
                 children: [
-                  // Transparent spacer matching header height minus overlap, containing header content
                   Container(
                     width: double.infinity,
                     height: max(0.0, headerHeight - 24),
@@ -84,7 +143,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        // School Shield / Logo (White/Monochrome version)
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
@@ -95,35 +153,24 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             ),
                           ),
                           child: const Icon(
-                            Icons.school_rounded,
-                            size: 56,
+                            Icons.password_rounded,
+                            size: 48,
                             color: Colors.white,
                           ),
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 12),
                         Text(
                           'Instituto Juárez Lincoln',
                           style: GoogleFonts.outfit(
-                            fontSize: 26,
+                            fontSize: 24,
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
                             letterSpacing: 0.5,
                           ),
                         ),
-                        const SizedBox(height: 6),
-                        Text(
-                          'Control de Acceso Escolar',
-                          style: GoogleFonts.inter(
-                            fontSize: 14,
-                            color: Colors.white.withValues(alpha: 0.8),
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
                       ],
                     ),
                   ),
-
-                  // White/Light Card (Bottom 60%)
                   Container(
                     width: double.infinity,
                     constraints: BoxConstraints(minHeight: cardMinHeight),
@@ -152,7 +199,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           Text(
-                            'Bienvenido',
+                            'Restablecer contraseña',
                             textAlign: TextAlign.center,
                             style: GoogleFonts.outfit(
                               fontSize: 24,
@@ -162,7 +209,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ),
                           const SizedBox(height: 12),
                           Text(
-                            'Inicia sesión para recibir notificaciones de acceso.',
+                            'Revisa tu correo e ingresa el código que recibiste junto con tu nueva contraseña.',
                             textAlign: TextAlign.center,
                             style: GoogleFonts.inter(
                               fontSize: 14,
@@ -171,33 +218,47 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             ),
                           ),
                           const SizedBox(height: 32),
-
                           Form(
                             key: _formKey,
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
                                 TextFormField(
-                                  controller: _emailController,
-                                  keyboardType: TextInputType.emailAddress,
-                                  textInputAction: TextInputAction.next,
-                                  enabled: !authState.isLoading,
+                                  initialValue: widget.email,
+                                  readOnly: true,
+                                  enabled: false,
                                   decoration: InputDecoration(
                                     labelText: 'Correo electrónico',
-                                    hintText: 'tutor@ijl.edu.mx',
                                     prefixIcon: const Icon(
                                       Icons.email_outlined,
                                     ),
+                                    filled: true,
+                                    fillColor: AppTheme.borderLightColor
+                                        .withValues(alpha: 0.3),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                TextFormField(
+                                  controller: _codeController,
+                                  keyboardType: TextInputType.text,
+                                  textInputAction: TextInputAction.next,
+                                  enabled: !recoveryState.isLoading,
+                                  autocorrect: false,
+                                  decoration: InputDecoration(
+                                    labelText: 'Código de recuperación',
+                                    hintText: 'Pega el código de tu correo',
+                                    prefixIcon: const Icon(Icons.pin_outlined),
+                                    errorText: codeError,
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(12),
                                     ),
                                   ),
                                   validator: (value) {
                                     if (value == null || value.trim().isEmpty) {
-                                      return 'Ingresa tu correo';
-                                    }
-                                    if (!value.contains('@')) {
-                                      return 'Correo no válido';
+                                      return 'Ingresa el código';
                                     }
                                     return null;
                                   },
@@ -205,53 +266,76 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 const SizedBox(height: 16),
                                 TextFormField(
                                   controller: _passwordController,
-                                  obscureText: true,
-                                  textInputAction: TextInputAction.done,
-                                  enabled: !authState.isLoading,
+                                  obscureText: _obscurePassword,
+                                  textInputAction: TextInputAction.next,
+                                  enabled: !recoveryState.isLoading,
                                   decoration: InputDecoration(
-                                    labelText: 'Contraseña',
+                                    labelText: 'Nueva contraseña',
+                                    helperText:
+                                        'Mínimo 12 caracteres, con mayúsculas, minúsculas, números y símbolos',
+                                    helperMaxLines: 2,
                                     prefixIcon: const Icon(Icons.lock_outline),
+                                    suffixIcon: IconButton(
+                                      icon: Icon(
+                                        _obscurePassword
+                                            ? Icons.visibility_off
+                                            : Icons.visibility,
+                                      ),
+                                      onPressed: () {
+                                        setState(() {
+                                          _obscurePassword = !_obscurePassword;
+                                        });
+                                      },
+                                    ),
+                                    errorText: passwordError,
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                  validator: _validatePassword,
+                                ),
+                                const SizedBox(height: 16),
+                                TextFormField(
+                                  controller: _confirmPasswordController,
+                                  obscureText: _obscureConfirmPassword,
+                                  textInputAction: TextInputAction.done,
+                                  enabled: !recoveryState.isLoading,
+                                  decoration: InputDecoration(
+                                    labelText: 'Confirmar contraseña',
+                                    prefixIcon: const Icon(Icons.lock_outline),
+                                    suffixIcon: IconButton(
+                                      icon: Icon(
+                                        _obscureConfirmPassword
+                                            ? Icons.visibility_off
+                                            : Icons.visibility,
+                                      ),
+                                      onPressed: () {
+                                        setState(() {
+                                          _obscureConfirmPassword =
+                                              !_obscureConfirmPassword;
+                                        });
+                                      },
+                                    ),
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(12),
                                     ),
                                   ),
                                   validator: (value) {
                                     if (value == null || value.isEmpty) {
-                                      return 'Ingresa tu contraseña';
+                                      return 'Confirma tu contraseña';
+                                    }
+                                    if (value != _passwordController.text) {
+                                      return 'Las contraseñas no coinciden';
                                     }
                                     return null;
                                   },
                                   onFieldSubmitted: (_) => _submit(),
                                 ),
-                                const SizedBox(height: 8),
-                                Align(
-                                  alignment: Alignment.centerRight,
-                                  child: InkWell(
-                                    onTap: authState.isLoading
-                                        ? null
-                                        : () => context.go('/forgot-password'),
-                                    borderRadius: BorderRadius.circular(4),
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 4,
-                                        vertical: 6,
-                                      ),
-                                      child: Text(
-                                        '¿Olvidaste tu contraseña?',
-                                        style: GoogleFonts.inter(
-                                          fontSize: 14,
-                                          color: const Color(0xFF1B3A6B),
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 16),
+                                const SizedBox(height: 24),
                                 SizedBox(
                                   height: 54,
                                   child: ElevatedButton(
-                                    onPressed: authState.isLoading
+                                    onPressed: recoveryState.isLoading
                                         ? null
                                         : _submit,
                                     style: ElevatedButton.styleFrom(
@@ -265,7 +349,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
-                                    child: authState.isLoading
+                                    child: recoveryState.isLoading
                                         ? const SizedBox(
                                             height: 22,
                                             width: 22,
@@ -274,16 +358,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                               color: Colors.white,
                                             ),
                                           )
-                                        : const Text('Iniciar sesión'),
+                                        : const Text('Restablecer contraseña'),
                                   ),
                                 ),
                               ],
                             ),
                           ),
-                          if (authState.errorMessage != null) ...[
+                          if (recoveryState.errorMessage != null &&
+                              codeError == null &&
+                              passwordError == null) ...[
                             const SizedBox(height: 16),
                             Text(
-                              authState.errorMessage!,
+                              recoveryState.errorMessage!,
                               textAlign: TextAlign.center,
                               style: GoogleFonts.inter(
                                 fontSize: 13,
@@ -293,21 +379,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             ),
                           ],
                           const SizedBox(height: 24),
-
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Text(
-                                '¿No tienes cuenta? ',
+                                '¿Código inválido o expirado? ',
                                 style: GoogleFonts.inter(
                                   fontSize: 14,
                                   color: AppTheme.textSecondaryColor,
                                 ),
                               ),
                               InkWell(
-                                onTap: authState.isLoading
+                                onTap: recoveryState.isLoading
                                     ? null
-                                    : _goToRegister,
+                                    : _goToForgotPassword,
                                 borderRadius: BorderRadius.circular(4),
                                 child: Padding(
                                   padding: const EdgeInsets.symmetric(
@@ -315,7 +400,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                     vertical: 4,
                                   ),
                                   child: Text(
-                                    'Regístrate',
+                                    'Solicitar nuevo código',
                                     style: GoogleFonts.inter(
                                       fontSize: 14,
                                       color: const Color(0xFF1B3A6B),
@@ -325,17 +410,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 ),
                               ),
                             ],
-                          ),
-                          const SizedBox(height: 60),
-
-                          // Terms and Conditions footer
-                          Text(
-                            'Al iniciar sesión, aceptas nuestros términos y condiciones',
-                            textAlign: TextAlign.center,
-                            style: GoogleFonts.inter(
-                              fontSize: 12,
-                              color: AppTheme.textSecondaryColor,
-                            ),
                           ),
                         ],
                       ),

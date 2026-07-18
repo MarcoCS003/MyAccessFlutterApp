@@ -9,8 +9,9 @@ sealed class Failure {
 
 class ServerFailure extends Failure {
   final int? statusCode;
+  final Map<String, List<String>>? fieldErrors;
 
-  const ServerFailure(super.message, {this.statusCode});
+  const ServerFailure(super.message, {this.statusCode, this.fieldErrors});
 }
 
 class NetworkFailure extends Failure {

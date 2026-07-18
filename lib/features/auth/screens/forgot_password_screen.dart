@@ -5,56 +5,53 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/theme.dart';
-import '../providers/auth_provider.dart';
+import '../providers/password_recovery_provider.dart';
 
-class LoginScreen extends ConsumerStatefulWidget {
-  const LoginScreen({super.key});
+class ForgotPasswordScreen extends ConsumerStatefulWidget {
+  const ForgotPasswordScreen({super.key});
 
   @override
-  ConsumerState<LoginScreen> createState() => _LoginScreenState();
+  ConsumerState<ForgotPasswordScreen> createState() =>
+      _ForgotPasswordScreenState();
 }
 
-class _LoginScreenState extends ConsumerState<LoginScreen> {
+class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
   final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
   @override
   void dispose() {
     _emailController.dispose();
-    _passwordController.dispose();
     super.dispose();
   }
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    await ref
-        .read(authProvider.notifier)
-        .signInWithEmailPassword(
-          _emailController.text.trim(),
-          _passwordController.text,
-        );
+    final email = _emailController.text.trim();
+    final success = await ref
+        .read(passwordRecoveryProvider.notifier)
+        .sendResetCode(email);
+    if (success && mounted) {
+      context.go('/reset-password?email=${Uri.encodeQueryComponent(email)}');
+    }
   }
 
-  void _goToRegister() => context.go('/register');
+  void _goToLogin() => context.go('/login');
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(authProvider);
+    final recoveryState = ref.watch(passwordRecoveryProvider);
     final size = MediaQuery.of(context).size;
     final topPadding = MediaQuery.of(context).padding.top;
     final bottomPadding = MediaQuery.of(context).padding.bottom;
 
-    // Header height is 40% of the screen height
-    final headerHeight = size.height * 0.40;
-    // Card min height is 60% of the screen height, plus 24px overlap
-    final cardMinHeight = (size.height * 0.60) + 24;
+    final headerHeight = size.height * 0.35;
+    final cardMinHeight = (size.height * 0.65) + 24;
 
     return Scaffold(
       backgroundColor: AppTheme.bgLightColor,
       body: Stack(
         children: [
-          // 1. Navy Gradient Background (Top 40%)
           Positioned(
             top: 0,
             left: 0,
@@ -70,13 +67,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ),
             ),
           ),
-
-          // 2. Scrollable Body
           Positioned.fill(
             child: SingleChildScrollView(
               child: Column(
                 children: [
-                  // Transparent spacer matching header height minus overlap, containing header content
                   Container(
                     width: double.infinity,
                     height: max(0.0, headerHeight - 24),
@@ -84,7 +78,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        // School Shield / Logo (White/Monochrome version)
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
@@ -95,7 +88,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             ),
                           ),
                           child: const Icon(
-                            Icons.school_rounded,
+                            Icons.lock_reset_rounded,
                             size: 56,
                             color: Colors.white,
                           ),
@@ -122,8 +115,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ],
                     ),
                   ),
-
-                  // White/Light Card (Bottom 60%)
                   Container(
                     width: double.infinity,
                     constraints: BoxConstraints(minHeight: cardMinHeight),
@@ -152,7 +143,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           Text(
-                            'Bienvenido',
+                            'Recuperar contraseña',
                             textAlign: TextAlign.center,
                             style: GoogleFonts.outfit(
                               fontSize: 24,
@@ -162,7 +153,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ),
                           const SizedBox(height: 12),
                           Text(
-                            'Inicia sesión para recibir notificaciones de acceso.',
+                            'Ingresa tu correo y te enviaremos un código para restablecer tu contraseña.',
                             textAlign: TextAlign.center,
                             style: GoogleFonts.inter(
                               fontSize: 14,
@@ -171,7 +162,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             ),
                           ),
                           const SizedBox(height: 32),
-
                           Form(
                             key: _formKey,
                             child: Column(
@@ -180,8 +170,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 TextFormField(
                                   controller: _emailController,
                                   keyboardType: TextInputType.emailAddress,
-                                  textInputAction: TextInputAction.next,
-                                  enabled: !authState.isLoading,
+                                  textInputAction: TextInputAction.done,
+                                  enabled: !recoveryState.isLoading,
                                   decoration: InputDecoration(
                                     labelText: 'Correo electrónico',
                                     hintText: 'tutor@ijl.edu.mx',
@@ -201,57 +191,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                     }
                                     return null;
                                   },
-                                ),
-                                const SizedBox(height: 16),
-                                TextFormField(
-                                  controller: _passwordController,
-                                  obscureText: true,
-                                  textInputAction: TextInputAction.done,
-                                  enabled: !authState.isLoading,
-                                  decoration: InputDecoration(
-                                    labelText: 'Contraseña',
-                                    prefixIcon: const Icon(Icons.lock_outline),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                  ),
-                                  validator: (value) {
-                                    if (value == null || value.isEmpty) {
-                                      return 'Ingresa tu contraseña';
-                                    }
-                                    return null;
-                                  },
                                   onFieldSubmitted: (_) => _submit(),
                                 ),
-                                const SizedBox(height: 8),
-                                Align(
-                                  alignment: Alignment.centerRight,
-                                  child: InkWell(
-                                    onTap: authState.isLoading
-                                        ? null
-                                        : () => context.go('/forgot-password'),
-                                    borderRadius: BorderRadius.circular(4),
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 4,
-                                        vertical: 6,
-                                      ),
-                                      child: Text(
-                                        '¿Olvidaste tu contraseña?',
-                                        style: GoogleFonts.inter(
-                                          fontSize: 14,
-                                          color: const Color(0xFF1B3A6B),
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 16),
+                                const SizedBox(height: 24),
                                 SizedBox(
                                   height: 54,
                                   child: ElevatedButton(
-                                    onPressed: authState.isLoading
+                                    onPressed: recoveryState.isLoading
                                         ? null
                                         : _submit,
                                     style: ElevatedButton.styleFrom(
@@ -265,7 +211,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
-                                    child: authState.isLoading
+                                    child: recoveryState.isLoading
                                         ? const SizedBox(
                                             height: 22,
                                             width: 22,
@@ -274,16 +220,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                               color: Colors.white,
                                             ),
                                           )
-                                        : const Text('Iniciar sesión'),
+                                        : const Text('Enviar código'),
                                   ),
                                 ),
                               ],
                             ),
                           ),
-                          if (authState.errorMessage != null) ...[
+                          if (recoveryState.errorMessage != null) ...[
                             const SizedBox(height: 16),
                             Text(
-                              authState.errorMessage!,
+                              recoveryState.errorMessage!,
                               textAlign: TextAlign.center,
                               style: GoogleFonts.inter(
                                 fontSize: 13,
@@ -293,21 +239,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             ),
                           ],
                           const SizedBox(height: 24),
-
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Text(
-                                '¿No tienes cuenta? ',
+                                '¿Ya la recordaste? ',
                                 style: GoogleFonts.inter(
                                   fontSize: 14,
                                   color: AppTheme.textSecondaryColor,
                                 ),
                               ),
                               InkWell(
-                                onTap: authState.isLoading
+                                onTap: recoveryState.isLoading
                                     ? null
-                                    : _goToRegister,
+                                    : _goToLogin,
                                 borderRadius: BorderRadius.circular(4),
                                 child: Padding(
                                   padding: const EdgeInsets.symmetric(
@@ -315,7 +260,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                     vertical: 4,
                                   ),
                                   child: Text(
-                                    'Regístrate',
+                                    'Inicia sesión',
                                     style: GoogleFonts.inter(
                                       fontSize: 14,
                                       color: const Color(0xFF1B3A6B),
@@ -325,17 +270,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 ),
                               ),
                             ],
-                          ),
-                          const SizedBox(height: 60),
-
-                          // Terms and Conditions footer
-                          Text(
-                            'Al iniciar sesión, aceptas nuestros términos y condiciones',
-                            textAlign: TextAlign.center,
-                            style: GoogleFonts.inter(
-                              fontSize: 12,
-                              color: AppTheme.textSecondaryColor,
-                            ),
                           ),
                         ],
                       ),

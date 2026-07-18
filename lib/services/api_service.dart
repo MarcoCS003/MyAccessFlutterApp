@@ -120,12 +120,34 @@ class ApiService {
       case DioExceptionType.badResponse:
         final statusCode = e.response?.statusCode;
         final message = _extractMessage(e.response?.data);
-        return ServerFailure(message, statusCode: statusCode);
+        final fieldErrors = _extractFieldErrors(e.response?.data);
+        return ServerFailure(
+          message,
+          statusCode: statusCode,
+          fieldErrors: fieldErrors,
+        );
       case DioExceptionType.cancel:
         return const NetworkFailure('Solicitud cancelada');
       case DioExceptionType.badCertificate:
         return const NetworkFailure('Error de certificado SSL');
     }
+  }
+
+  Map<String, List<String>>? _extractFieldErrors(dynamic data) {
+    if (data is Map<String, dynamic>) {
+      final errors = data['errors'];
+      if (errors is Map<String, dynamic>) {
+        return errors.map(
+          (key, value) => MapEntry(
+            key,
+            value is List
+                ? value.map((e) => e.toString()).toList()
+                : [value.toString()],
+          ),
+        );
+      }
+    }
+    return null;
   }
 
   String _extractMessage(dynamic data) {
