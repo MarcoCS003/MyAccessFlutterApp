@@ -330,7 +330,10 @@ class _ChildDetailContent extends ConsumerWidget {
                 height: 50,
                 child: OutlinedButton.icon(
                   onPressed: () => _confirmUnlink(context, ref, child),
-                  icon: const Icon(Icons.link_off_rounded, color: AppTheme.errorColor),
+                  icon: const Icon(
+                    Icons.link_off_rounded,
+                    color: AppTheme.errorColor,
+                  ),
                   label: Text(
                     'Desvincular alumno',
                     style: GoogleFonts.inter(
@@ -395,7 +398,9 @@ class _ChildDetailContent extends ConsumerWidget {
     if (child.qrCode == null || child.qrCode!.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('El alumno no tiene un código de referencia para desvincular.'),
+          content: Text(
+            'El alumno no tiene un código de referencia para desvincular.',
+          ),
           backgroundColor: AppTheme.errorColor,
         ),
       );

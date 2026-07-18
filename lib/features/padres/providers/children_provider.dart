@@ -112,7 +112,10 @@ class ChildrenNotifier extends StateNotifier<AsyncValue<List<Child>>> {
     final previousState = state;
 
     try {
-      await _apiService.post('/desvincular-alumno', data: {'codigo_alumno': code});
+      await _apiService.post(
+        '/desvincular-alumno',
+        data: {'codigo_alumno': code},
+      );
       await loadChildren();
     } catch (e) {
       state = previousState;

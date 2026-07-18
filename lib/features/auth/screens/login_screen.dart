@@ -281,7 +281,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 ),
                               ),
                               InkWell(
-                                onTap: authState.isLoading ? null : _goToRegister,
+                                onTap: authState.isLoading
+                                    ? null
+                                    : _goToRegister,
                                 borderRadius: BorderRadius.circular(4),
                                 child: Padding(
                                   padding: const EdgeInsets.symmetric(

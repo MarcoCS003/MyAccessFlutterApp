@@ -16,7 +16,7 @@ class RegisterScreen extends ConsumerStatefulWidget {
 
 class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _nameController = TextEditingController();
-  final _emailUsernameController = TextEditingController();
+  final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
@@ -26,7 +26,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   @override
   void dispose() {
     _nameController.dispose();
-    _emailUsernameController.dispose();
+    _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
@@ -34,7 +34,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    final email = '${_emailUsernameController.text.trim()}@ijl.edu.mx';
+    final email = _emailController.text.trim();
     await ref
         .read(authProvider.notifier)
         .signUp(
@@ -198,67 +198,41 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                   },
                                 ),
                                 const SizedBox(height: 16),
-                                Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Expanded(
-                                      child: TextFormField(
-                                        controller: _emailUsernameController,
-                                        keyboardType:
-                                            TextInputType.emailAddress,
-                                        textInputAction: TextInputAction.next,
-                                        enabled: !authState.isLoading,
-                                        decoration: InputDecoration(
-                                          labelText: 'Usuario',
-                                          hintText: 'juan.perez',
-                                          prefixIcon: const Icon(
-                                            Icons.email_outlined,
-                                          ),
-                                          border: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              12,
-                                            ),
-                                          ),
-                                        ),
-                                        validator: (value) {
-                                          if (value == null ||
-                                              value.trim().isEmpty) {
-                                            return 'Ingresa tu usuario';
-                                          }
-                                          if (value.contains('@')) {
-                                            return 'Solo el nombre, sin @ijl.edu.mx';
-                                          }
-                                          if (value.contains(' ')) {
-                                            return 'El usuario no puede tener espacios';
-                                          }
-                                          return null;
-                                        },
-                                      ),
+                                TextFormField(
+                                  controller: _emailController,
+                                  keyboardType: TextInputType.emailAddress,
+                                  textInputAction: TextInputAction.next,
+                                  enabled: !authState.isLoading,
+                                  decoration: InputDecoration(
+                                    labelText: 'Correo electrónico personal',
+                                    hintText: 'tutor@correo.com',
+                                    prefixIcon: const Icon(
+                                      Icons.email_outlined,
                                     ),
-                                    const SizedBox(width: 8),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 14,
-                                        vertical: 16,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: AppTheme.borderLightColor
-                                            .withValues(alpha: 0.5),
-                                        borderRadius: BorderRadius.circular(12),
-                                        border: Border.all(
-                                          color: AppTheme.borderLightColor,
-                                        ),
-                                      ),
-                                      child: Text(
-                                        '@ijl.edu.mx',
-                                        style: GoogleFonts.inter(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w600,
-                                          color: AppTheme.textPrimaryColor,
-                                        ),
-                                      ),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
                                     ),
-                                  ],
+                                  ),
+                                  validator: (value) {
+                                    if (value == null || value.trim().isEmpty) {
+                                      return 'Ingresa tu correo';
+                                    }
+                                    final email = value.trim();
+                                    if (email.contains(' ')) {
+                                      return 'El correo no puede tener espacios';
+                                    }
+                                    if (!email.contains('@')) {
+                                      return 'Ingresa un correo válido';
+                                    }
+                                    final parts = email.split('@');
+                                    if (parts.length != 2 || parts[1].isEmpty) {
+                                      return 'Ingresa un correo válido';
+                                    }
+                                    if (!parts[1].contains('.')) {
+                                      return 'Ingresa un correo válido';
+                                    }
+                                    return null;
+                                  },
                                 ),
                                 const SizedBox(height: 16),
                                 TextFormField(
@@ -303,9 +277,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                   enabled: !authState.isLoading,
                                   decoration: InputDecoration(
                                     labelText: 'Confirmar contraseña',
-                                    prefixIcon: const Icon(
-                                      Icons.lock_outline,
-                                    ),
+                                    prefixIcon: const Icon(Icons.lock_outline),
                                     suffixIcon: IconButton(
                                       icon: Icon(
                                         _obscureConfirmPassword

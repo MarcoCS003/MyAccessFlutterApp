@@ -10,34 +10,35 @@ import '../models/child.dart';
 /// El QR puede contener JSON con `idS` y `personId`, o solo la referencia
 /// (qr_code) plana. Se intenta primero por ID (`/students/{id}`) y, si no se
 /// proporciona ID, se busca por referencia en la lista completa.
-final studentByQrProvider = FutureProvider.family<Child?, ({int? id, String reference})>((
-  ref,
-  qrData,
-) async {
-  final apiService = ApiService();
+final studentByQrProvider =
+    FutureProvider.family<Child?, ({int? id, String reference})>((
+      ref,
+      qrData,
+    ) async {
+      final apiService = ApiService();
 
-  if (qrData.id != null) {
-    try {
-      final response = await apiService.get('/students/${qrData.id}');
-      final data = response as Map<String, dynamic>?;
-      if (data != null) {
-        return Child.fromJson(data);
+      if (qrData.id != null) {
+        try {
+          final response = await apiService.get('/students/${qrData.id}');
+          final data = response as Map<String, dynamic>?;
+          if (data != null) {
+            return Child.fromJson(data);
+          }
+        } catch (_) {
+          // Si falla la búsqueda por ID, continuamos buscando por referencia.
+        }
       }
-    } catch (_) {
-      // Si falla la búsqueda por ID, continuamos buscando por referencia.
-    }
-  }
 
-  final response = await apiService.get('/students');
-  final data = response as Map<String, dynamic>;
-  final students = data['data'] as List<dynamic>? ?? [];
+      final response = await apiService.get('/students');
+      final data = response as Map<String, dynamic>;
+      final students = data['data'] as List<dynamic>? ?? [];
 
-  for (final item in students) {
-    final student = item as Map<String, dynamic>;
-    if (student['qr_code']?.toString() == qrData.reference) {
-      return Child.fromJson(student);
-    }
-  }
+      for (final item in students) {
+        final student = item as Map<String, dynamic>;
+        if (student['qr_code']?.toString() == qrData.reference) {
+          return Child.fromJson(student);
+        }
+      }
 
-  return null;
-});
+      return null;
+    });
