@@ -34,7 +34,7 @@ class _NoOpChildrenNotifier extends ChildrenNotifier {
   }
 
   @override
-  void initialize() {
+  Future<void> initialize() async {
     // No hace nada: evita llamadas de red en widget tests.
   }
 }

@@ -99,9 +99,7 @@ class ChildrenNotifier extends StateNotifier<AsyncValue<List<Child>>> {
   /// Inicia la carga de hijos. Se llama explícitamente desde
   /// [MainNavigationScreen] para evitar peticiones automáticas antes de que
   /// el usuario esté autenticado.
-  void initialize() {
-    loadChildren();
-  }
+  Future<void> initialize() => loadChildren();
 
   final ApiService _apiService;
 

@@ -41,18 +41,70 @@ class NotificationItem {
     );
   }
 
+  /// El backend no siempre manda las claves canónicas (ver
+  /// docs/reporte_notificaciones_fcm.md): el evento puede venir como
+  /// `attendance_type: entry|exit` y la fecha como `recorded_at`. Se aceptan
+  /// alias y el evento se normaliza a 'check_in'/'check_out', que es lo que
+  /// la UI (ChildCard, timeline, contadores) espera.
   factory NotificationItem.fromFcm(Map<String, dynamic> data) {
+    final eventRaw = _firstString(data, const [
+      'event',
+      'attendance_type',
+      'event_type',
+      'tipo',
+    ]);
+    final timestampRaw = _firstString(data, const [
+      'timestamp',
+      'recorded_at',
+      'created_at',
+    ]);
+    final studentIdRaw = _firstString(data, const [
+      'student_id',
+      'studentId',
+      'alumno_id',
+    ]);
+
     return NotificationItem(
-      id: '${data['student_id']}_${data['event']}_${data['timestamp']}',
-      type: data['type'] ?? 'attendance',
-      event: data['event'] ?? 'check_in',
-      studentName: data['student_name'] ?? 'Alumno',
-      studentId: int.tryParse(data['student_id']?.toString() ?? '0') ?? 0,
+      // El id usa las cadenas crudas del payload: con las claves canónicas
+      // genera los mismos ids de siempre y la deduplicación por id contra
+      // lo ya guardado en Hive sigue funcionando.
+      id: '${studentIdRaw}_${eventRaw ?? 'check_in'}_$timestampRaw',
+      type: data['type']?.toString() ?? 'attendance',
+      event: _normalizeEvent(eventRaw),
+      studentName:
+          _firstString(data, const [
+            'student_name',
+            'studentName',
+            'nombre',
+            'name',
+          ]) ??
+          'Alumno',
+      studentId: int.tryParse(studentIdRaw ?? '0') ?? 0,
       timestamp:
-          DateTime.tryParse(data['timestamp'] ?? '')?.toLocal() ??
-          DateTime.now(),
-      location: data['location'] as String?,
+          DateTime.tryParse(timestampRaw ?? '')?.toLocal() ?? DateTime.now(),
+      location: _firstString(data, const ['location', 'ubicacion']),
     );
+  }
+
+  static String? _firstString(Map<String, dynamic> data, List<String> keys) {
+    for (final key in keys) {
+      final value = data[key];
+      if (value != null && value.toString().isNotEmpty) {
+        return value.toString();
+      }
+    }
+    return null;
+  }
+
+  static String _normalizeEvent(String? raw) {
+    switch (raw?.toLowerCase()) {
+      case 'check_out':
+      case 'exit':
+      case 'salida':
+        return 'check_out';
+      default:
+        return 'check_in';
+    }
   }
 
   Map<String, dynamic> toJson() {

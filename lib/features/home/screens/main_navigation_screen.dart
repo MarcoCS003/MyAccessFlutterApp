@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -9,6 +10,7 @@ import 'package:cliente_flutter_myaccess/features/padres/screens/home_padre_scre
 import 'package:cliente_flutter_myaccess/features/padres/providers/children_provider.dart';
 import 'package:cliente_flutter_myaccess/features/maestros/screens/home_maestro_screen.dart';
 import 'package:cliente_flutter_myaccess/features/maestros/screens/teacher_qr_screen.dart';
+import 'package:cliente_flutter_myaccess/features/notifications/data/notification_seeder.dart';
 import 'package:cliente_flutter_myaccess/features/notifications/screens/notifications_screen.dart';
 import 'package:cliente_flutter_myaccess/features/notifications/providers/notification_provider.dart';
 import 'package:cliente_flutter_myaccess/features/profile/screens/profile_screen.dart';
@@ -29,9 +31,41 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
     super.initState();
     // Carga los hijos una vez que la navegación principal está montada y
     // el estado de autenticación ya debería estar resuelto.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(childrenProvider.notifier).initialize();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await ref.read(childrenProvider.notifier).initialize();
+      await _seedDemoIfNeeded();
     });
+  }
+
+  /// Solo en builds debug: siembra un mes de entradas/salidas demo para el
+  /// usuario actual (hijos del padre, o asistencia propia del maestro). Es
+  /// una vez por usuario: el flag vive en settingsBox y signOut lo limpia,
+  /// así que cada login parte de una base propia recién sembrada.
+  Future<void> _seedDemoIfNeeded() async {
+    if (!kDebugMode) return;
+    final user = ref.read(authProvider).user;
+    if (user == null) return;
+
+    final seeder = NotificationSeeder();
+    final int seeded;
+    if (user.isTeacher) {
+      seeded = await seeder.seedMonthForUser(
+        userKey: user.email,
+        people: [(id: user.id, name: user.name)],
+        type: 'teacher_attendance',
+      );
+    } else {
+      final children = ref.read(childrenProvider).valueOrNull ?? [];
+      if (children.isEmpty) return;
+      seeded = await seeder.seedMonthForUser(
+        userKey: user.email,
+        people: [for (final c in children) (id: c.id, name: c.name)],
+        type: 'student_attendance',
+      );
+    }
+    if (seeded > 0) {
+      ref.read(notificationProvider.notifier).reloadFromLocal();
+    }
   }
 
   @override

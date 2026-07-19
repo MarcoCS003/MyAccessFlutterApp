@@ -31,7 +31,9 @@
 
 ## FCM Notifications (source of truth is local)
 
-- **Every FCM message is persisted to Hive** (`notifications_box`) through `lib/features/notifications/data/notification_local_store.dart` — both the foreground listener and the background handler use it, with dedupe by `NotificationItem.id` (`studentId_event_timestamp`).
+- **Every FCM message is persisted to Hive** (`notifications_box`) through `lib/features/notifications/data/notification_local_store.dart` — both the foreground listener and the background handler use it, with dedupe by `NotificationItem.id` (`studentId_event_timestamp`, built from the raw payload strings).
+- **Real backend payload** (see `docs/reporte_notificaciones_fcm.md`): `data` carries `{type: student_attendance, student_id, attendance_type: entry|exit, recorded_at}` — NOT `event`/`timestamp`/`student_name`. `NotificationItem.fromFcm` accepts aliases (`attendance_type`, `recorded_at`, `event_type`, `tipo`, `nombre`, ...) and normalizes the event to `check_in`/`check_out`, which is what the UI expects.
+- **Backend messages include a `notification` key**, so in background/terminated state Android shows the system tray itself and `onBackgroundMessage` does NOT fire — nothing is persisted unless the user taps (`onMessageOpenedApp`). Persisting in background requires the backend to send data-only messages (backend change, applied by the user; never touch the backend project).
 - **`notificationProvider` feeds the UI**: notifications screen, `childrenWithActivityProvider` (single provider for ChildCard/status in `home_padre_screen` and `child_detail_screen`) and `childTimelineProvider` (detail history/stats). Child status/timeline come from the local DB, NOT from new backend calls.
 - **System tray notifications** are shown via `flutter_local_notifications` (`lib/services/local_notifications_service.dart`, channel `attendance_channel`) for foreground and background data-only messages.
 - `main.dart` reloads the provider from Hive on `AppLifecycleState.resumed`, and persists tapped tray notifications via `onMessageOpenedApp`/`getInitialMessage`.
@@ -49,9 +51,10 @@
   - Light Gold: `#FEDB9B`
 - Fonts: `GoogleFonts.poppins()` for headings, `GoogleFonts.inter()` for body.
 
-## Debug Features in `main.dart`
+## Debug Features
 
 - A `DebugRoleToggleBtn` is permanently overlaid at bottom-left when authenticated. It toggles between `parent` and `teacher` roles to switch home screens without re-login. Do not remove unless explicitly asked.
+- **Demo seed (debug only):** when `MainNavigationScreen` mounts, `_seedDemoIfNeeded()` seeds a month of Mon–Fri entry/exit notifications for the logged-in user (each linked child for parents, own attendance for teachers) via `NotificationSeeder` (`lib/features/notifications/data/notification_seeder.dart`). Runs only under `kDebugMode`, once per user email (flag in `settingsBox`); `signOut` wipes the boxes, so the next login re-seeds a fresh per-user dataset. Seeded items are marked with `location: 'Demo'` and `isRead: true`.
 
 ## Developer Commands
 
