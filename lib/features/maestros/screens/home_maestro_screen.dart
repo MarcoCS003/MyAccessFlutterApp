@@ -1,26 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:qr_flutter/qr_flutter.dart';
+import 'package:intl/intl.dart';
 
 import '../../../core/theme/theme.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../notifications/models/notification_item.dart';
 import '../providers/teacher_provider.dart';
 
-class HomeMaestroScreen extends ConsumerWidget {
+/// Período seleccionado en las stat cards del home del maestro.
+enum _TimeFilter { today, week, month }
+
+class HomeMaestroScreen extends ConsumerStatefulWidget {
   const HomeMaestroScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomeMaestroScreen> createState() => _HomeMaestroScreenState();
+}
+
+class _HomeMaestroScreenState extends ConsumerState<HomeMaestroScreen> {
+  _TimeFilter _filter = _TimeFilter.today;
+
+  @override
+  Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
     final teacherState = ref.watch(teacherProvider);
     final user = authState.user;
 
     final fullName = user?.name ?? 'Profesor IJL';
     final firstName = fullName.split(' ').first;
-    final email = user?.email ?? 'profesor@ijl.edu.mx';
     final initials = fullName
         .split(' ')
         .take(2)
@@ -104,127 +112,13 @@ class HomeMaestroScreen extends ConsumerWidget {
                         color: Colors.white,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      email,
-                      style: GoogleFonts.inter(
-                        fontSize: 13,
-                        color: Colors.white.withValues(alpha: 0.75),
-                      ),
-                    ),
                   ],
                 ),
               ),
 
               const SizedBox(height: 24),
 
-              // ── QR Card ───────────────────────────────────────────────────
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.06),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      if (teacherState.qrData.isNotEmpty)
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: QrImageView(
-                            data: teacherState.qrData,
-                            size: 96,
-                            padding: const EdgeInsets.all(4),
-                            eyeStyle: const QrEyeStyle(
-                              eyeShape: QrEyeShape.square,
-                              color: AppTheme.primaryColor,
-                            ),
-                            dataModuleStyle: const QrDataModuleStyle(
-                              dataModuleShape: QrDataModuleShape.square,
-                              color: AppTheme.primaryColor,
-                            ),
-                          ),
-                        )
-                      else
-                        Container(
-                          width: 96,
-                          height: 96,
-                          decoration: BoxDecoration(
-                            color: AppTheme.borderLightColor,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Icon(
-                            Icons.qr_code,
-                            color: AppTheme.textSecondaryColor,
-                          ),
-                        ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Tu código de maestro',
-                              style: GoogleFonts.poppins(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: AppTheme.textPrimaryColor,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Muestra este QR en el checador o compártelo con padres para vincularte.',
-                              style: GoogleFonts.inter(
-                                fontSize: 12,
-                                color: AppTheme.textSecondaryColor,
-                                height: 1.4,
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            SizedBox(
-                              height: 36,
-                              child: OutlinedButton(
-                                onPressed: () => context.push('/teacher-qr'),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: AppTheme.primaryColor,
-                                  side: const BorderSide(
-                                    color: AppTheme.primaryColor,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 14,
-                                  ),
-                                ),
-                                child: Text(
-                                  'Ver QR grande',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 28),
-
-              // ── Estadísticas ──────────────────────────────────────────────
+              // ── Estadísticas (filtros de período) ─────────────────────────
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Text(
@@ -247,6 +141,9 @@ class HomeMaestroScreen extends ConsumerWidget {
                         value: '${teacherState.stats.todayCount}',
                         icon: Icons.today_rounded,
                         iconColor: AppTheme.successColor,
+                        selected: _filter == _TimeFilter.today,
+                        onTap: () =>
+                            setState(() => _filter = _TimeFilter.today),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -256,15 +153,20 @@ class HomeMaestroScreen extends ConsumerWidget {
                         value: '${teacherState.stats.weekCount}',
                         icon: Icons.date_range_rounded,
                         iconColor: AppTheme.themeNavyColor,
+                        selected: _filter == _TimeFilter.week,
+                        onTap: () => setState(() => _filter = _TimeFilter.week),
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: _StatCard(
-                        title: 'Total',
-                        value: '${teacherState.stats.totalCount}',
-                        icon: Icons.notifications_rounded,
+                        title: 'Mes',
+                        value: '${teacherState.stats.monthCount}',
+                        icon: Icons.calendar_month_rounded,
                         iconColor: AppTheme.accentGoldColor,
+                        selected: _filter == _TimeFilter.month,
+                        onTap: () =>
+                            setState(() => _filter = _TimeFilter.month),
                       ),
                     ),
                   ],
@@ -273,11 +175,11 @@ class HomeMaestroScreen extends ConsumerWidget {
 
               const SizedBox(height: 28),
 
-              // ── Timeline de hoy ───────────────────────────────────────────
+              // ── Registros del período seleccionado ────────────────────────
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Text(
-                  'Notificaciones de hoy',
+                  _listTitle,
                   style: GoogleFonts.poppins(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -286,20 +188,231 @@ class HomeMaestroScreen extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 14),
-              if (teacherState.todayNotifications.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                  child: _EmptyTodayState(),
-                )
-              else
-                ...teacherState.todayNotifications.asMap().entries.map((entry) {
-                  final index = entry.key;
-                  final notification = entry.value;
-                  return _TodayNotificationTile(
-                    notification: notification,
-                    isLast: index == teacherState.todayNotifications.length - 1,
-                  );
-                }),
+              ..._buildRecords(teacherState.notifications),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String get _listTitle {
+    switch (_filter) {
+      case _TimeFilter.today:
+        return 'Notificaciones de hoy';
+      case _TimeFilter.week:
+        return 'Notificaciones de la semana';
+      case _TimeFilter.month:
+        return 'Notificaciones del mes';
+    }
+  }
+
+  List<Widget> _buildRecords(List<NotificationItem> notifications) {
+    switch (_filter) {
+      case _TimeFilter.today:
+        return _buildTodayRecords(notifications);
+      case _TimeFilter.week:
+        return _buildWeekRecords(notifications);
+      case _TimeFilter.month:
+        return _buildMonthRecords(notifications);
+    }
+  }
+
+  /// Hoy: registros de hoy; si hoy no hay ninguno, los del último día con
+  /// registros.
+  List<Widget> _buildTodayRecords(List<NotificationItem> notifications) {
+    if (notifications.isEmpty) {
+      return const [_EmptyRecordsSection(filter: _TimeFilter.today)];
+    }
+    final byDay = _groupByDay(notifications);
+    final today = _dateOnly(DateTime.now());
+    // byDay conserva el orden descendente: la primera llave es el día más
+    // reciente con registros.
+    final day = byDay.containsKey(today) ? today : byDay.keys.first;
+    return _buildDaySections({day: byDay[day]!});
+  }
+
+  /// Semana actual (lunes–domingo), agrupada por día del más reciente al más
+  /// antiguo.
+  List<Widget> _buildWeekRecords(List<NotificationItem> notifications) {
+    final weekStart = teacherWeekStart(DateTime.now());
+    final items = notifications
+        .where((n) => !_dateOnly(n.timestamp).isBefore(weekStart))
+        .toList();
+    if (items.isEmpty) {
+      return const [_EmptyRecordsSection(filter: _TimeFilter.week)];
+    }
+    return _buildDaySections(_groupByDay(items));
+  }
+
+  /// Mes calendario actual, agrupado en semanas expandibles; dentro de cada
+  /// semana, grupos por día.
+  List<Widget> _buildMonthRecords(List<NotificationItem> notifications) {
+    final now = DateTime.now();
+    final items = notifications
+        .where(
+          (n) => n.timestamp.year == now.year && n.timestamp.month == now.month,
+        )
+        .toList();
+    if (items.isEmpty) {
+      return const [_EmptyRecordsSection(filter: _TimeFilter.month)];
+    }
+
+    final currentWeek = teacherWeekStart(now);
+    final byWeek = <DateTime, List<NotificationItem>>{};
+    for (final notification in items) {
+      byWeek
+          .putIfAbsent(teacherWeekStart(notification.timestamp), () => [])
+          .add(notification);
+    }
+
+    return byWeek.entries.map((entry) {
+      final isCurrentWeek = entry.key.isAtSameMomentAs(currentWeek);
+      return Container(
+        margin: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppTheme.borderLightColor),
+        ),
+        child: ExpansionTile(
+          initiallyExpanded: isCurrentWeek,
+          title: Text(
+            _weekLabel(entry.key),
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.textPrimaryColor,
+            ),
+          ),
+          childrenPadding: const EdgeInsets.only(bottom: 12),
+          children: _buildDaySections(_groupByDay(entry.value)),
+        ),
+      );
+    }).toList();
+  }
+
+  /// Etiqueta de una semana: "semana 7 – 13 julio 2026" o, si cruza de mes,
+  /// "semana 29 junio – 3 julio 2026".
+  String _weekLabel(DateTime weekStart) {
+    final weekEnd = weekStart.add(const Duration(days: 6));
+    if (weekStart.month == weekEnd.month && weekStart.year == weekEnd.year) {
+      return 'semana ${weekStart.day} – ${DateFormat('d MMMM y', 'es').format(weekEnd)}';
+    }
+    return 'semana ${DateFormat('d MMMM', 'es').format(weekStart)} – ${DateFormat('d MMMM y', 'es').format(weekEnd)}';
+  }
+
+  /// Encabezado de fecha + timeline por cada día, en el orden del mapa (que
+  /// llega ya ordenado del día más reciente al más antiguo).
+  List<Widget> _buildDaySections(Map<DateTime, List<NotificationItem>> byDay) {
+    final totalTiles = byDay.values.fold<int>(
+      0,
+      (sum, list) => sum + list.length,
+    );
+    var tileIndex = 0;
+    final widgets = <Widget>[];
+    for (final entry in byDay.entries) {
+      widgets.add(_DayHeader(date: entry.key));
+      for (final notification in entry.value) {
+        tileIndex++;
+        widgets.add(
+          _AttendanceTile(
+            notification: notification,
+            isLast: tileIndex == totalTiles,
+          ),
+        );
+      }
+    }
+    return widgets;
+  }
+
+  /// Agrupa por día conservando el orden de la lista (más reciente primero).
+  Map<DateTime, List<NotificationItem>> _groupByDay(
+    List<NotificationItem> notifications,
+  ) {
+    final byDay = <DateTime, List<NotificationItem>>{};
+    for (final notification in notifications) {
+      byDay
+          .putIfAbsent(_dateOnly(notification.timestamp), () => [])
+          .add(notification);
+    }
+    return byDay;
+  }
+
+  DateTime _dateOnly(DateTime date) =>
+      DateTime(date.year, date.month, date.day);
+}
+
+class _StatCard extends StatelessWidget {
+  final String title;
+  final String value;
+  final IconData icon;
+  final Color iconColor;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _StatCard({
+    required this.title,
+    required this.value,
+    required this.icon,
+    required this.iconColor,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: selected
+          ? AppTheme.primaryColor.withValues(alpha: 0.08)
+          : Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      elevation: selected ? 0 : 1,
+      shadowColor: Colors.black.withValues(alpha: 0.08),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: selected
+                  ? AppTheme.primaryColor
+                  : AppTheme.borderLightColor,
+              width: selected ? 1.6 : 1,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: iconColor.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: iconColor, size: 18),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                value,
+                style: GoogleFonts.poppins(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: selected
+                      ? AppTheme.primaryColor
+                      : AppTheme.textPrimaryColor,
+                ),
+              ),
+              Text(
+                title,
+                style: GoogleFonts.inter(
+                  fontSize: 11,
+                  color: AppTheme.textSecondaryColor,
+                ),
+              ),
             ],
           ),
         ),
@@ -308,120 +421,96 @@ class HomeMaestroScreen extends ConsumerWidget {
   }
 }
 
-class _StatCard extends StatelessWidget {
-  final String title;
-  final String value;
-  final IconData icon;
-  final Color iconColor;
+class _DayHeader extends StatelessWidget {
+  final DateTime date;
 
-  const _StatCard({
-    required this.title,
-    required this.value,
-    required this.icon,
-    required this.iconColor,
-  });
+  const _DayHeader({required this.date});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.borderLightColor),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: iconColor.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: iconColor, size: 18),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            value,
-            style: GoogleFonts.poppins(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: AppTheme.textPrimaryColor,
-            ),
-          ),
-          Text(
-            title,
-            style: GoogleFonts.inter(
-              fontSize: 11,
-              color: AppTheme.textSecondaryColor,
-            ),
-          ),
-        ],
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 6, 20, 10),
+      child: Text(
+        DateFormat("EEEE, d 'de' MMMM 'de' y", 'es').format(date),
+        style: GoogleFonts.inter(
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          color: AppTheme.textSecondaryColor,
+        ),
       ),
     );
   }
 }
 
-class _EmptyTodayState extends StatelessWidget {
-  const _EmptyTodayState();
+class _EmptyRecordsSection extends StatelessWidget {
+  final _TimeFilter filter;
+
+  const _EmptyRecordsSection({required this.filter});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.borderLightColor),
+    final (title, message) = switch (filter) {
+      _TimeFilter.today => (
+        'Sin notificaciones hoy',
+        'Cuando lleguen alertas de entrada o salida aparecerán aquí.',
       ),
-      child: Column(
-        children: [
-          const Icon(
-            Icons.notifications_off_outlined,
-            size: 48,
-            color: AppTheme.borderLightColor,
-          ),
-          const SizedBox(height: 10),
-          Text(
-            'Sin notificaciones hoy',
-            style: GoogleFonts.poppins(
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-              color: AppTheme.textPrimaryColor,
+      _TimeFilter.week => (
+        'Sin notificaciones esta semana',
+        'No hay registros de entrada o salida en la semana actual.',
+      ),
+      _TimeFilter.month => (
+        'Sin notificaciones este mes',
+        'No hay registros de entrada o salida en el mes actual.',
+      ),
+    };
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppTheme.borderLightColor),
+        ),
+        child: Column(
+          children: [
+            const Icon(
+              Icons.notifications_off_outlined,
+              size: 48,
+              color: AppTheme.borderLightColor,
             ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Cuando lleguen alertas de entrada o salida aparecerán aquí.',
-            textAlign: TextAlign.center,
-            style: GoogleFonts.inter(
-              fontSize: 13,
-              color: AppTheme.textSecondaryColor,
+            const SizedBox(height: 10),
+            Text(
+              title,
+              style: GoogleFonts.poppins(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.textPrimaryColor,
+              ),
             ),
-          ),
-        ],
+            const SizedBox(height: 4),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                color: AppTheme.textSecondaryColor,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _TodayNotificationTile extends StatelessWidget {
+class _AttendanceTile extends StatelessWidget {
   final NotificationItem notification;
   final bool isLast;
 
-  const _TodayNotificationTile({
-    required this.notification,
-    required this.isLast,
-  });
+  const _AttendanceTile({required this.notification, required this.isLast});
 
   @override
   Widget build(BuildContext context) {
@@ -430,6 +519,8 @@ class _TodayNotificationTile extends StatelessWidget {
     final icon = isEntry ? Icons.login_rounded : Icons.logout_rounded;
     final time =
         '${notification.timestamp.hour.toString().padLeft(2, '0')}:${notification.timestamp.minute.toString().padLeft(2, '0')}';
+    // La hora ya aparece arriba a la derecha: el detalle no la repite.
+    final detail = '${notification.studentName} ${isEntry ? 'entró' : 'salió'}';
 
     return IntrinsicHeight(
       child: Row(
@@ -493,7 +584,7 @@ class _TodayNotificationTile extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    notification.body,
+                    detail,
                     style: GoogleFonts.inter(
                       fontSize: 13,
                       color: AppTheme.textSecondaryColor,
