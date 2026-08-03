@@ -18,7 +18,8 @@ class TimelineEvent {
   String get title =>
       type == 'check_in' ? 'Entrada registrada' : 'Salida registrada';
   String get time => DateFormat('HH:mm').format(recordedAt);
-  String get date => DateFormat('EEE, d MMM', 'es').format(recordedAt);
+  String get date =>
+      DateFormat("EEEE, d 'de' MMMM 'de' y", 'es').format(recordedAt);
 
   TimelineEvent copyWith({
     int? id,

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:intl/intl.dart';
 
 import '../../../core/errors/failures.dart';
 import '../../../core/theme/theme.dart';
@@ -127,13 +126,6 @@ class _ChildDetailContent extends ConsumerWidget {
             color: Colors.white,
           ),
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.qr_code_rounded, color: Colors.white),
-            tooltip: 'Ver QR',
-            onPressed: () => context.push('/child/${child.id}/qr'),
-          ),
-        ],
       ),
       body: SingleChildScrollView(
         child: Column(
@@ -496,7 +488,6 @@ class _TimelineEventTile extends StatelessWidget {
     final eventColor = isEntry ? AppTheme.successColor : Colors.orange;
     final eventIcon = isEntry ? Icons.login_rounded : Icons.logout_rounded;
     final badgeLabel = isEntry ? 'Entrada' : 'Salida';
-    final dateLabel = DateFormat('EEE, d MMM', 'es').format(event.recordedAt);
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -588,7 +579,7 @@ class _TimelineEventTile extends StatelessWidget {
                 ],
                 const SizedBox(height: 3),
                 Text(
-                  dateLabel,
+                  event.date,
                   style: GoogleFonts.inter(
                     fontSize: 11,
                     color: AppTheme.textSecondaryColor.withValues(alpha: 0.65),
