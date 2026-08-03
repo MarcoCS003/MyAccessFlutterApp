@@ -61,7 +61,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
       state = AuthState(status: AuthStatus.authenticated, user: user);
     } on Failure catch (e) {
       state = AuthState(status: AuthStatus.error, errorMessage: e.message);
-    } catch (e) {
+    } catch (e, st) {
+      debugPrint('signInWithEmailPassword falló: $e\n$st');
       state = AuthState(
         status: AuthStatus.error,
         errorMessage: 'Credenciales incorrectas o error del servidor',
@@ -88,7 +89,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
                   'email': email,
                   'password': password,
                   'password_confirmation': passwordConfirmation,
-                  'role': AppConstants.roleParent,
                   'fcm_token': fcmToken,
                 },
                 requiresAuth: false,
@@ -109,7 +109,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
       state = AuthState(status: AuthStatus.authenticated, user: user);
     } on Failure catch (e) {
       state = AuthState(status: AuthStatus.error, errorMessage: e.message);
-    } catch (e) {
+    } catch (e, st) {
+      debugPrint('signUp falló: $e\n$st');
       state = AuthState(
         status: AuthStatus.error,
         errorMessage: 'Error al registrar. Verifica tus datos.',
@@ -120,10 +121,13 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<void> signOut() async {
     try {
       await _secureStorage.delete(key: AppConstants.jwtTokenKey);
-      await Hive.box(AppConstants.authBox).clear();
-      await Hive.box(AppConstants.childrenBox).clear();
-      await Hive.box(AppConstants.notificationsBox).clear();
-      await Hive.box(AppConstants.settingsBox).clear();
+      // La BD local (hijos, notificaciones, settings) se conserva al cerrar
+      // sesión: los datos de cada cuenta están namespacedos por userKey
+      // (email) en Hive, así que nada se mezcla al alternar cuentas en el
+      // mismo dispositivo. La sesión termina al borrar el JWT;
+      // checkAuthStatus exige token + usuario, así que sin token queda no
+      // autenticado. auth_box['user'] se conserva como última cuenta
+      // conocida (la usan los handlers FCM para namespacer escrituras).
       state = const AuthState(status: AuthStatus.unauthenticated);
     } catch (e) {
       state = AuthState(

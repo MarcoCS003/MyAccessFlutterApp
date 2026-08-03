@@ -178,7 +178,7 @@ void main() {
       ).thenAnswer((_) async {});
     });
 
-    test('envia role parent y persiste token al registrar', () async {
+    test('registra sin role y persiste token al registrar', () async {
       when(
         () => mockDio.post(
           '/auth/register',

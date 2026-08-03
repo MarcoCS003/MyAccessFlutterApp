@@ -16,8 +16,4 @@ class AppConstants {
 
   // SecureStorage keys
   static const String jwtTokenKey = 'jwt_token';
-
-  // Roles
-  static const String roleParent = 'parent';
-  static const String roleTeacher = 'teacher';
 }
