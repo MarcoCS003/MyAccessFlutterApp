@@ -26,7 +26,7 @@ void main() {
         type: 'student_attendance',
       );
 
-      final items = NotificationLocalStore().load();
+      final items = NotificationLocalStore(userKey: 'padre@ijl.edu.mx').load();
       expect(count, greaterThan(0));
       expect(items.length, count);
 
@@ -64,7 +64,7 @@ void main() {
   );
 
   test('es idempotente por usuario y conserva notificaciones reales', () async {
-    await NotificationLocalStore().upsert(
+    await NotificationLocalStore(userKey: 'padre@ijl.edu.mx').upsert(
       NotificationItem(
         id: 'real-1',
         type: 'student_attendance',
@@ -82,7 +82,9 @@ void main() {
       type: 'student_attendance',
     );
     expect(first, greaterThan(0));
-    final totalAfterFirst = NotificationLocalStore().load().length;
+    final totalAfterFirst = NotificationLocalStore(
+      userKey: 'padre@ijl.edu.mx',
+    ).load().length;
 
     // Mismo usuario: no duplica.
     final second = await seeder.seedMonthForUser(
@@ -91,9 +93,12 @@ void main() {
       type: 'student_attendance',
     );
     expect(second, 0);
-    expect(NotificationLocalStore().load().length, totalAfterFirst);
+    expect(
+      NotificationLocalStore(userKey: 'padre@ijl.edu.mx').load().length,
+      totalAfterFirst,
+    );
 
-    // Otro usuario: siembra su propia tanda.
+    // Otro usuario: siembra su propia tanda, aislada en su clave.
     final other = await seeder.seedMonthForUser(
       userKey: 'maestro@ijl.edu.mx',
       people: const [(id: 20, name: 'Marco Carrasco')],
@@ -101,11 +106,23 @@ void main() {
     );
     expect(other, greaterThan(0));
 
-    final items = NotificationLocalStore().load();
-    expect(items.any((n) => n.id == 'real-1'), isTrue);
-    expect(items.where((n) => n.studentId == 20).length, other);
+    // El padre conserva lo suyo (incluida la notificación real) y NO ve
+    // lo sembrado para el maestro.
+    final padreItems = NotificationLocalStore(
+      userKey: 'padre@ijl.edu.mx',
+    ).load();
+    expect(padreItems.any((n) => n.id == 'real-1'), isTrue);
+    expect(padreItems.length, totalAfterFirst);
+    expect(padreItems.any((n) => n.studentId == 20), isFalse);
+
+    // El maestro solo tiene su tanda, sin datos del padre.
+    final maestroItems = NotificationLocalStore(
+      userKey: 'maestro@ijl.edu.mx',
+    ).load();
+    expect(maestroItems.length, other);
+    expect(maestroItems.any((n) => n.id == 'real-1'), isFalse);
     expect(
-      items.firstWhere((n) => n.studentId == 20).type,
+      maestroItems.firstWhere((n) => n.studentId == 20).type,
       'teacher_attendance',
     );
   });

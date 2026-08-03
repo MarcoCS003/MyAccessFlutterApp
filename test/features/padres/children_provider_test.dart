@@ -55,7 +55,10 @@ void main() {
         );
 
         final apiService = ApiService(dio: mockDio, secureStorage: mockStorage);
-        final notifier = ChildrenNotifier(apiService: apiService);
+        final notifier = ChildrenNotifier(
+          apiService: apiService,
+          userKey: 'padre@ijl.edu.mx',
+        );
 
         await notifier.loadChildren();
 
@@ -113,13 +116,91 @@ void main() {
       );
 
       final apiService = ApiService(dio: mockDio, secureStorage: mockStorage);
-      final notifier = ChildrenNotifier(apiService: apiService);
+      final notifier = ChildrenNotifier(
+        apiService: apiService,
+        userKey: 'padre@ijl.edu.mx',
+      );
       notifier.state = const AsyncValue.data([]);
 
       await notifier.linkChild('ABC123');
 
       expect(notifier.state.value!.length, 1);
       expect(notifier.state.value!.first.name, 'Ana López');
+    });
+
+    test('el caché de hijos está aislado por userKey', () async {
+      const keyA = 'a@ijl.edu.mx';
+      const keyB = 'b@ijl.edu.mx';
+
+      ApiService okApi() {
+        final mockDio = MockDio();
+        configureMockDioOptions(mockDio);
+        when(
+          () => mockDio.get(
+            '/user',
+            queryParameters: any(named: 'queryParameters'),
+            options: any(named: 'options'),
+          ),
+        ).thenAnswer(
+          (_) async => Response(
+            data: {
+              'students': [
+                {
+                  'id': 1,
+                  'name': 'Hijo de A',
+                  'grade': '3ro Primaria',
+                  'group': 'A',
+                  'status': 'inside',
+                },
+              ],
+            },
+            statusCode: 200,
+            requestOptions: RequestOptions(path: '/user'),
+          ),
+        );
+        return ApiService(dio: mockDio);
+      }
+
+      // API que simula estar sin red.
+      ApiService failingApi() {
+        final mockDio = MockDio();
+        configureMockDioOptions(mockDio);
+        when(
+          () => mockDio.get(
+            '/user',
+            queryParameters: any(named: 'queryParameters'),
+            options: any(named: 'options'),
+          ),
+        ).thenThrow(
+          DioException(
+            requestOptions: RequestOptions(path: '/user'),
+            type: DioExceptionType.connectionError,
+          ),
+        );
+        return ApiService(dio: mockDio);
+      }
+
+      // A guarda su roster en Hive vía un loadChildren exitoso.
+      final notifierA = ChildrenNotifier(apiService: okApi(), userKey: keyA);
+      await notifierA.loadChildren();
+      expect(notifierA.state.value!.first.name, 'Hijo de A');
+
+      // B sin red NO debe ver el caché de A: queda en error.
+      final notifierB = ChildrenNotifier(
+        apiService: failingApi(),
+        userKey: keyB,
+      );
+      await notifierB.loadChildren();
+      expect(notifierB.state.hasValue, isFalse);
+      expect(notifierB.state.hasError, isTrue);
+
+      // A sin red SÍ recupera su propio caché.
+      final notifierA2 = ChildrenNotifier(
+        apiService: failingApi(),
+        userKey: keyA,
+      );
+      await notifierA2.loadChildren();
+      expect(notifierA2.state.value!.first.name, 'Hijo de A');
     });
   });
 }

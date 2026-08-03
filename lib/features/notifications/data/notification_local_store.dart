@@ -2,13 +2,27 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 import '../../../core/constants/app_constants.dart';
+import '../../../core/utils/user_key.dart';
 import '../models/notification_item.dart';
 
 /// Acceso compartido a la caja Hive de notificaciones. Centraliza la
 /// deduplicación por id y el orden (más reciente primero) para que el
 /// provider y el handler de background de FCM escriban igual.
+///
+/// Aislamiento por cuenta: cada usuario lee/escribe bajo `items_<userKey>`.
+/// La clave global 'items' de versiones anteriores quedó huérfana (app en
+/// desarrollo, datos demo): no se migra.
 class NotificationLocalStore {
-  static const String _key = 'items';
+  NotificationLocalStore({required String userKey})
+    : _key = 'items_${userStorageKey(userKey)}';
+
+  /// Store del usuario de la última sesión persistida en auth_box; sin
+  /// sesión cae en el inbox anónimo (la UI no lo lee, pero el mensaje FCM
+  /// no se pierde). Para handlers FCM y el isolate de background.
+  factory NotificationLocalStore.forCurrentUser() =>
+      NotificationLocalStore(userKey: currentUserKey() ?? anonymousUserKey);
+
+  final String _key;
 
   Box get _box => Hive.box(AppConstants.notificationsBox);
 

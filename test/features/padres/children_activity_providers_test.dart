@@ -1,9 +1,13 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:cliente_flutter_myaccess/features/auth/models/auth_state.dart';
+import 'package:cliente_flutter_myaccess/features/auth/models/user.dart';
+import 'package:cliente_flutter_myaccess/features/auth/providers/auth_provider.dart';
 import 'package:cliente_flutter_myaccess/features/notifications/providers/notification_provider.dart';
 import 'package:cliente_flutter_myaccess/features/padres/models/child.dart';
 import 'package:cliente_flutter_myaccess/features/padres/providers/children_provider.dart';
 
+import '../../mocks/auth_mocks.dart';
 import '../../mocks/children_mocks.dart';
 import '../../test_helpers.dart';
 
@@ -36,6 +40,22 @@ void main() {
   }) async {
     final container = ProviderContainer(
       overrides: [
+        // notificationProvider hace watch del email del usuario autenticado
+        // para namespacer la BD local; sin este override construiría el
+        // AuthNotifier real (Firebase) dentro del test.
+        authProvider.overrideWith(
+          (ref) => MockAuthNotifier(
+            const AuthState(
+              status: AuthStatus.authenticated,
+              user: User(
+                id: 1,
+                name: 'Padre Prueba',
+                email: 'padre@ijl.edu.mx',
+                role: 'parent',
+              ),
+            ),
+          ),
+        ),
         childrenProvider.overrideWith(
           (ref) => MockChildrenNotifier([juan, ana]),
         ),

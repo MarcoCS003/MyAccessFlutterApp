@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:cliente_flutter_myaccess/features/notifications/providers/notification_provider.dart';
 import 'package:cliente_flutter_myaccess/features/padres/models/child.dart';
 import 'package:cliente_flutter_myaccess/features/padres/models/timeline_event.dart';
 import 'package:cliente_flutter_myaccess/features/padres/providers/children_provider.dart';
@@ -24,6 +25,9 @@ void main() {
           childrenProvider.overrideWith(
             (ref) => MockChildrenNotifier([testChild]),
           ),
+          // Evita que notificationProvider construya el AuthNotifier real
+          // (Firebase) al hacer watch del email del usuario autenticado.
+          notificationProvider.overrideWith((ref) => NotificationNotifier()),
           childTimelineProvider.overrideWith((ref, childId) async {
             return <TimelineEvent>[];
           }),

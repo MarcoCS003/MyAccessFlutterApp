@@ -37,10 +37,11 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
     });
   }
 
-  /// Solo en builds debug: siembra un mes de entradas/salidas demo para el
-  /// usuario actual (hijos del padre, o asistencia propia del maestro). Es
-  /// una vez por usuario: el flag vive en settingsBox y signOut lo limpia,
-  /// así que cada login parte de una base propia recién sembrada.
+  /// Solo en builds debug: siembra entradas/salidas demo para el usuario
+  /// actual (30 días para los hijos del padre, 60 días para la asistencia
+  /// propia del maestro). Es una vez por usuario: el flag (`demo_seed_v2_`)
+  /// vive en settingsBox y persiste entre sesiones, así que cada cuenta
+  /// siembra solo la primera vez.
   Future<void> _seedDemoIfNeeded() async {
     if (!kDebugMode) return;
     final user = ref.read(authProvider).user;
@@ -49,10 +50,14 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
     final seeder = NotificationSeeder();
     final int seeded;
     if (user.isTeacher) {
+      // El maestro recibe 60 días: la vista Mes del home agrupa por semanas
+      // expandibles y conviene cubrir todo el mes calendario actual sin
+      // importar en qué día del mes se corre la demo.
       seeded = await seeder.seedMonthForUser(
         userKey: user.email,
         people: [(id: user.id, name: user.name)],
         type: 'teacher_attendance',
+        days: 60,
       );
     } else {
       final children = ref.read(childrenProvider).valueOrNull ?? [];

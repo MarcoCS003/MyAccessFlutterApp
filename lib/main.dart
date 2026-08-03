@@ -20,13 +20,18 @@ final _localNotifications = LocalNotificationsService();
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   await Hive.initFlutter();
+  await Hive.openBox(AppConstants.authBox);
   await Hive.openBox(AppConstants.notificationsBox);
 
   // Persistir en la BD local con deduplicación; solo si es nuevo se muestra
   // la notificación del sistema (mensajes data-only no generan UI en bg).
+  // Se escribe bajo la clave del usuario de la sesión guardada en auth_box;
+  // sin sesión cae en el inbox anónimo fijo que la UI no lee.
   debugPrint('[FCM][BG] data: ${message.data}');
   final notification = NotificationItem.fromFcm(message.data);
-  final inserted = await NotificationLocalStore().upsert(notification);
+  final inserted = await NotificationLocalStore.forCurrentUser().upsert(
+    notification,
+  );
   if (inserted) {
     final service = LocalNotificationsService();
     await service.init();

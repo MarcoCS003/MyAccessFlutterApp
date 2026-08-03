@@ -4,15 +4,21 @@ import 'package:hive_flutter/hive_flutter.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/errors/failures.dart';
+import '../../../core/utils/user_key.dart';
 import '../../../services/api_service.dart';
+import '../../auth/providers/auth_provider.dart';
 import '../../notifications/models/notification_item.dart';
 import '../../notifications/providers/notification_provider.dart';
 import '../models/child.dart';
 import '../models/timeline_event.dart';
 
+/// Se recrea cuando cambia el usuario autenticado (login de otra cuenta o
+/// logout): el notifier nuevo precarga el caché Hive de ESA cuenta, así la
+/// cuenta B nunca ve los hijos cacheados de la cuenta A.
 final childrenProvider =
     StateNotifierProvider<ChildrenNotifier, AsyncValue<List<Child>>>((ref) {
-      return ChildrenNotifier();
+      final email = ref.watch(authProvider.select((s) => s.user?.email));
+      return ChildrenNotifier(userKey: email);
     });
 
 bool _isToday(DateTime d) {
@@ -92,9 +98,21 @@ final childTimelineProvider = FutureProvider.family<List<TimelineEvent>, int>((
 });
 
 class ChildrenNotifier extends StateNotifier<AsyncValue<List<Child>>> {
-  ChildrenNotifier({ApiService? apiService})
+  ChildrenNotifier({ApiService? apiService, String? userKey})
     : _apiService = apiService ?? ApiService(),
-      super(const AsyncValue.loading());
+      _userKey = userKey,
+      super(const AsyncValue.loading()) {
+    // Precarga el caché local de ESTA cuenta mientras initialize()/
+    // loadChildren() pide el roster al backend (conserva el soporte
+    // offline). Sin sesión no se lee nada de Hive.
+    if (userKey != null) {
+      _loadFromHive().then((cached) {
+        if (cached.isNotEmpty && !state.hasValue) {
+          state = AsyncValue.data(cached);
+        }
+      });
+    }
+  }
 
   /// Inicia la carga de hijos. Se llama explícitamente desde
   /// [MainNavigationScreen] para evitar peticiones automáticas antes de que
@@ -102,6 +120,13 @@ class ChildrenNotifier extends StateNotifier<AsyncValue<List<Child>>> {
   Future<void> initialize() => loadChildren();
 
   final ApiService _apiService;
+  final String? _userKey;
+
+  /// Clave namespaceda por cuenta. Sin sesión se usa el inbox anónimo
+  /// (nadie lo lee desde la UI). La clave global 'items' de versiones
+  /// anteriores quedó huérfana: no se migra.
+  String get _hiveKey =>
+      'items_${userStorageKey(_userKey ?? anonymousUserKey)}';
 
   Future<void> loadChildren() async {
     state = const AsyncValue.loading();
@@ -172,7 +197,7 @@ class ChildrenNotifier extends StateNotifier<AsyncValue<List<Child>>> {
   Future<void> _saveToHive(List<Child> children) async {
     try {
       final box = Hive.box(AppConstants.childrenBox);
-      await box.put('items', children.map((c) => c.toJson()).toList());
+      await box.put(_hiveKey, children.map((c) => c.toJson()).toList());
     } catch (e) {
       debugPrint('Error saving children to Hive: $e');
     }
@@ -181,7 +206,7 @@ class ChildrenNotifier extends StateNotifier<AsyncValue<List<Child>>> {
   Future<List<Child>> _loadFromHive() async {
     try {
       final box = Hive.box(AppConstants.childrenBox);
-      final items = box.get('items', defaultValue: <Map<dynamic, dynamic>>[]);
+      final items = box.get(_hiveKey, defaultValue: <Map<dynamic, dynamic>>[]);
       return (items as List)
           .map((e) => Child.fromJson(Map<String, dynamic>.from(e)))
           .toList();

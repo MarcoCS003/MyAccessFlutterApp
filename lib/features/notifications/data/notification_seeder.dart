@@ -6,23 +6,29 @@ import 'notification_local_store.dart';
 
 /// Genera datos demo de entradas/salidas (solo se invoca en builds debug)
 /// para probar la app con un mes de historial en la BD local. Los items se
-/// marcan con `location: 'Demo'` para distinguirlos de los eventos reales.
+/// marcan con `location: 'Demo'` para distinguirlos de los eventos reales
+/// y se guardan bajo la clave namespaceda del usuario (`items_<userKey>`).
 class NotificationSeeder {
-  NotificationSeeder({NotificationLocalStore? store, Box? settingsBox})
-    : _store = store ?? NotificationLocalStore(),
-      _settingsBox = settingsBox ?? Hive.box(AppConstants.settingsBox);
+  NotificationSeeder({this.store, Box? settingsBox})
+    : _settingsBox = settingsBox ?? Hive.box(AppConstants.settingsBox);
 
-  final NotificationLocalStore _store;
+  /// Store inyectado (tests); si no, se resuelve por userKey en cada siembra.
+  final NotificationLocalStore? store;
   final Box _settingsBox;
 
   static const String demoLocation = 'Demo';
 
-  static String _flagKey(String userKey) => 'demo_seed_$userKey';
+  /// Flag de idempotencia por usuario. El sufijo v2 fuerza UNA re-siembra en
+  /// instalaciones que ya sembraron con la clave v1 (`demo_seed_<userKey>`),
+  /// para regenerar datos tras el namespacing por cuenta y el seed extendido
+  /// del maestro; la deduplicación por id absorbe los días traslapados.
+  static String _flagKey(String userKey) => 'demo_seed_v2_$userKey';
 
   /// Siembra un mes ([days] días hacia atrás, solo lunes-viernes) de entradas
   /// (~07:45) y salidas (~14:30) para cada persona. Idempotente por usuario:
   /// si ya se sembró para [userKey] devuelve 0 sin tocar la BD. El flag vive
-  /// en settingsBox, que signOut limpia, así que el siguiente login re-siembra.
+  /// en settingsBox, que se conserva entre sesiones: cada usuario siembra
+  /// solo la primera vez que entra en el dispositivo.
   Future<int> seedMonthForUser({
     required String userKey,
     required List<({int id, String name})> people,
@@ -32,6 +38,7 @@ class NotificationSeeder {
     if (people.isEmpty) return 0;
     if (_settingsBox.get(_flagKey(userKey)) == true) return 0;
 
+    final store = this.store ?? NotificationLocalStore(userKey: userKey);
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final generated = <NotificationItem>[];
@@ -71,7 +78,7 @@ class NotificationSeeder {
       }
     }
 
-    await _store.saveAll([...generated, ..._store.load()]);
+    await store.saveAll([...generated, ...store.load()]);
     await _settingsBox.put(_flagKey(userKey), true);
     return generated.length;
   }
