@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -10,7 +9,6 @@ import 'package:cliente_flutter_myaccess/features/padres/screens/home_padre_scre
 import 'package:cliente_flutter_myaccess/features/padres/providers/children_provider.dart';
 import 'package:cliente_flutter_myaccess/features/maestros/screens/home_maestro_screen.dart';
 import 'package:cliente_flutter_myaccess/features/maestros/screens/teacher_qr_screen.dart';
-import 'package:cliente_flutter_myaccess/features/notifications/data/notification_seeder.dart';
 import 'package:cliente_flutter_myaccess/features/notifications/screens/notifications_screen.dart';
 import 'package:cliente_flutter_myaccess/features/notifications/providers/notification_provider.dart';
 import 'package:cliente_flutter_myaccess/features/profile/screens/profile_screen.dart';
@@ -33,44 +31,7 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
     // el estado de autenticación ya debería estar resuelto.
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await ref.read(childrenProvider.notifier).initialize();
-      await _seedDemoIfNeeded();
     });
-  }
-
-  /// Solo en builds debug: siembra entradas/salidas demo para el usuario
-  /// actual (30 días para los hijos del padre, 60 días para la asistencia
-  /// propia del maestro). Es una vez por usuario: el flag (`demo_seed_v2_`)
-  /// vive en settingsBox y persiste entre sesiones, así que cada cuenta
-  /// siembra solo la primera vez.
-  Future<void> _seedDemoIfNeeded() async {
-    if (!kDebugMode) return;
-    final user = ref.read(authProvider).user;
-    if (user == null) return;
-
-    final seeder = NotificationSeeder();
-    final int seeded;
-    if (user.isTeacher) {
-      // El maestro recibe 60 días: la vista Mes del home agrupa por semanas
-      // expandibles y conviene cubrir todo el mes calendario actual sin
-      // importar en qué día del mes se corre la demo.
-      seeded = await seeder.seedMonthForUser(
-        userKey: user.email,
-        people: [(id: user.id, name: user.name)],
-        type: 'teacher_attendance',
-        days: 60,
-      );
-    } else {
-      final children = ref.read(childrenProvider).valueOrNull ?? [];
-      if (children.isEmpty) return;
-      seeded = await seeder.seedMonthForUser(
-        userKey: user.email,
-        people: [for (final c in children) (id: c.id, name: c.name)],
-        type: 'student_attendance',
-      );
-    }
-    if (seeded > 0) {
-      ref.read(notificationProvider.notifier).reloadFromLocal();
-    }
   }
 
   @override

@@ -33,7 +33,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     try {
       state = state.copyWith(status: AuthStatus.loading, errorMessage: null);
 
-      final fcmToken = await _firebaseMessaging.getToken();
+      final fcmToken = await _getFcmTokenSafely();
 
       final response =
           await _apiService.post(
@@ -79,7 +79,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     try {
       state = state.copyWith(status: AuthStatus.loading, errorMessage: null);
 
-      final fcmToken = await _firebaseMessaging.getToken();
+      final fcmToken = await _getFcmTokenSafely();
 
       final response =
           await _apiService.post(
@@ -168,7 +168,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   Future<void> _registerFcmToken() async {
     try {
-      final fcmToken = await _firebaseMessaging.getToken();
+      final fcmToken = await _getFcmTokenSafely();
       if (fcmToken == null || fcmToken.isEmpty) return;
 
       await _apiService.post(
@@ -178,6 +178,19 @@ class AuthNotifier extends StateNotifier<AuthState> {
       debugPrint('FCM token registered successfully');
     } catch (e) {
       debugPrint('Failed to register FCM token: $e');
+    }
+  }
+
+  /// Obtiene el FCM token sin romper el flujo de auth cuando no está
+  /// disponible (en iOS sin entitlement de Push / APNs no configurado,
+  /// getToken() lanza `apns-token-not-set`). El login/registro deben
+  /// continuar aunque el dispositivo no pueda recibir push.
+  Future<String?> _getFcmTokenSafely() async {
+    try {
+      return await _firebaseMessaging.getToken();
+    } catch (e) {
+      debugPrint('FCM token no disponible (se continúa sin push): $e');
+      return null;
     }
   }
 

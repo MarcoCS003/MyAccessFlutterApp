@@ -21,7 +21,10 @@
 ## Auth & Backend (Critical)
 
 - **⚠️ NEVER MODIFY THE BACKEND.** The Laravel backend (`/home/marcocarrasco/Documentos/Proyectos/myAccessIJL`) is a separate project. Do NOT start/stop it, change its port, host binding, or configuration. It runs as `php artisan serve` (default `127.0.0.1:8000`) managed by the user. If you need the emulator to reach it, use `adb reverse tcp:8000 tcp:8000` instead.
-- **Change the backend URL only via `lib/core/constants/api_config.dart`.** This is the single source of truth for the API base URL — toggle between emulator (`10.0.2.2`) and physical device (`192.168.20.206`) by commenting/uncommenting `ApiConfig.baseUrl`.
+- **Change the backend URL only via `lib/core/constants/api_config.dart`.** This is the single source of truth for the API base URL. `ApiConfig.baseUrl` reads `String.fromEnvironment('API_BASE_URL')` with the **production URL `https://checador.ijl.com.mx/api` as default**, so release builds always point to the official backend. For local development, override with `--dart-define` (do NOT edit the file), e.g.:
+  - Tailscale (any network): `flutter run --dart-define=API_BASE_URL=https://marcoijl.tail6fabd9.ts.net/api`
+  - Physical device on LAN: `flutter run --dart-define=API_BASE_URL=http://192.168.100.4:8000/api`
+  - Android emulator: `flutter run --dart-define=API_BASE_URL=http://localhost:8000/api` (plus `adb reverse tcp:8000 tcp:8000`)
 - **Auth is currently mocked.** `lib/features/auth/providers/auth_provider.dart` uses a hardcoded `MockUser` and manual `login()` / `logout()` / `toggleRole()`.
 - **Firebase is configured** for project `notificacionesapptutores`:
   - Android: `android/app/google-services.json` (package `com.jmoreno.riverboldbrave`).
@@ -55,7 +58,6 @@
 ## Debug Features
 
 - A `DebugRoleToggleBtn` is permanently overlaid at bottom-left when authenticated. It toggles between `parent` and `teacher` roles to switch home screens without re-login. Do not remove unless explicitly asked.
-- **Demo seed (debug only):** when `MainNavigationScreen` mounts, `_seedDemoIfNeeded()` seeds Mon–Fri entry/exit notifications for the logged-in user via `NotificationSeeder` (`lib/features/notifications/data/notification_seeder.dart`) — 30 days back for parents (each linked child), 60 days back for teachers (own attendance, to fill the home's week-grouped month view). Runs only under `kDebugMode`, once per user email (flag `demo_seed_v2_<email>` in `settingsBox`; the v2 suffix forces a one-time reseed over older installs — id-dedup absorbs overlap). `signOut` does NOT wipe local data (deliberate, to test multiple users on one device), so seeded data persists across logins, namespaced per account. Seeded items are marked with `location: 'Demo'` and `isRead: true`.
 
 ## Developer Commands
 
