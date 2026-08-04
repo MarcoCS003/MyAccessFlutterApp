@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Acceso IJL</title>
+  <desc id="desc">Libro abierto con un icono de acceso verificado.</desc>
+  <rect width="512" height="512" rx="112" fill="#1B3A6B"/>
+  <path d="M256 113c-39-28-82-32-128-13v151c0 48 23 78 68 89 25 6 44 16 60 31 16-15 35-25 60-31 45-11 68-41 68-89V100c-46-19-89-15-128 13z" fill="#C5A56F" stroke="#FFFFFF" stroke-width="12" stroke-linejoin="round"/>
+  <g fill="none" stroke="#FFFFFF" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M256 119v253" stroke-width="10"/>
+    <path d="M151 128c28 8 53 7 76 1 12-3 21-2 29 4v179c-18-12-39-19-62-23-29-5-43-24-43-56z" stroke-width="8"/>
+    <path d="M361 128c-28 8-53 7-76 1-12-3-21-2-29 4v179c18-12 39-19 62-23 29-5 43-24 43-56z" stroke-width="8"/>
+  </g>
+  <g stroke-linejoin="round">
+    <rect x="328" y="327" width="120" height="120" rx="24" fill="#FEDB9B" stroke="#FFFFFF" stroke-width="10"/>
+    <path d="m350 386 23 23 51-55" fill="none" stroke="#002452" stroke-width="17" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

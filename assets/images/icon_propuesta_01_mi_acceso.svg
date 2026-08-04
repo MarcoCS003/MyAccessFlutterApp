@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Mi Acceso IJL</title>
+  <desc id="desc">Portal de acceso con verificacion y flechas de entrada y salida.</desc>
+  <rect width="512" height="512" rx="112" fill="#002452"/>
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M135 397V222c0-70 54-126 121-126s121 56 121 126v175" stroke="#FEDB9B" stroke-width="24"/>
+    <path d="M190 397V225c0-38 29-68 66-68s66 30 66 68v172" stroke="#FFFFFF" stroke-width="14"/>
+    <path d="M209 284l35 35 68-72" stroke="#FEDB9B" stroke-width="18"/>
+    <path d="M74 273h73m-28-28 28 28-28 28" stroke="#FFFFFF" stroke-width="12"/>
+    <path d="M438 346h-73m28-28-28 28 28 28" stroke="#FFFFFF" stroke-width="12"/>
+  </g>
+  <circle cx="256" cy="419" r="14" fill="#C5A56F"/>
+</svg>

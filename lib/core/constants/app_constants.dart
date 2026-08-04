@@ -1,7 +1,7 @@
 import 'api_config.dart';
 
 class AppConstants {
-  static const String appName = 'MyAccess IJL';
+  static const String appName = 'Acceso IJL';
   static const String appVersion = '1.0.0';
 
   // Backend Laravel: apunta a ApiConfig para poder alternar entre

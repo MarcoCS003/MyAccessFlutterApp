@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Paso IJL</title>
+  <desc id="desc">Camino de acceso que termina en una entrada protegida.</desc>
+  <rect width="512" height="512" rx="112" fill="#002452"/>
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M151 394V220c0-54 47-98 105-98s105 44 105 98v174" stroke="#FFFFFF" stroke-width="18"/>
+    <path d="M207 394V228c0-26 22-47 49-47s49 21 49 47v166" stroke="#C5A56F" stroke-width="16"/>
+    <path d="M256 462V374" stroke="#FEDB9B" stroke-width="22"/>
+    <path d="m213 408 43-45 43 45" stroke="#FEDB9B" stroke-width="22"/>
+    <path d="M86 285h72m-28-28 28 28-28 28" stroke="#FFFFFF" stroke-width="12"/>
+    <path d="M426 346h-72m28-28-28 28 28 28" stroke="#FFFFFF" stroke-width="12"/>
+  </g>
+  <circle cx="256" cy="228" r="12" fill="#FEDB9B"/>
+</svg>

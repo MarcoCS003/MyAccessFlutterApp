@@ -137,7 +137,7 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
     final router = ref.watch(routerProvider);
 
     return MaterialApp.router(
-      title: 'MyAccess IJL',
+      title: 'Acceso IJL',
       theme: AppTheme.lightTheme,
       routerConfig: router,
       debugShowCheckedModeBanner: false,
