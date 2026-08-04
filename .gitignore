@@ -51,3 +51,10 @@ idea-*.3 (2)
 Macs Tortas.zip
 test_output.txt
 *.zip
+
+# Directorios de build de Android
+/android/build/
+
+# Configuración local de OpenCode (puede contener tokens)
+opencode.json
+opencode.jsonc

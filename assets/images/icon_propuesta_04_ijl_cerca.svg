@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">IJL Cerca</title>
+  <desc id="desc">Marcador de ubicacion con una familia en su interior.</desc>
+  <rect width="512" height="512" rx="112" fill="#002452"/>
+  <path d="M256 72c-77 0-139 60-139 135 0 104 139 238 139 238s139-134 139-238c0-75-62-135-139-135z" fill="#C5A56F"/>
+  <circle cx="256" cy="207" r="91" fill="#FFFFFF"/>
+  <g fill="#002452">
+    <circle cx="218" cy="191" r="25"/>
+    <path d="M170 295c2-42 21-70 48-70s46 28 48 70z"/>
+    <circle cx="302" cy="207" r="19"/>
+    <path d="M261 295c2-33 17-55 41-55s39 22 41 55z"/>
+  </g>
+  <path d="m181 321 28 28 57-62" fill="none" stroke="#FEDB9B" stroke-width="17" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="256" cy="207" r="10" fill="#FEDB9B"/>
+</svg>

@@ -1,37 +1,31 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/theme.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../providers/profile_provider.dart';
 
-class ProfileScreen extends ConsumerStatefulWidget {
+class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
   @override
-  ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
-}
-
-class _ProfileScreenState extends ConsumerState<ProfileScreen> {
-  bool _notificationsEnabled = true;
-  bool _darkModeEnabled = false;
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authProvider);
+    final profile = ref.watch(profileProvider);
     final user = authState.user;
 
-    final String displayName = user?.name ?? 'Usuario';
-    final String displayEmail = user?.email ?? '';
-    final String role = authState.role == 'teacher' ? 'Docente' : 'Tutor';
+    final displayName = user?.name ?? 'Usuario';
+    final displayEmail = user?.email ?? '';
+    final role = user?.role == 'teacher' ? 'Docente' : 'Tutor';
 
-    // Initials from name
-    final List<String> parts = displayName.trim().split(' ');
-    final String initials = parts.length >= 2
+    final parts = displayName.trim().split(' ');
+    final initials = parts.length >= 2
         ? '${parts[0][0]}${parts[1][0]}'.toUpperCase()
         : displayName.isNotEmpty
-            ? displayName[0].toUpperCase()
-            : 'U';
+        ? displayName[0].toUpperCase()
+        : 'U';
 
     return Column(
       children: [
@@ -39,7 +33,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         Container(
           width: double.infinity,
           color: AppTheme.primaryColor,
-          padding: EdgeInsets.only(
+          padding: const EdgeInsets.only(
             top: 64,
             bottom: 32,
             left: 24,
@@ -47,7 +41,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           ),
           child: Column(
             children: [
-              // Initials avatar (gold bg, navy text)
               CircleAvatar(
                 radius: 40,
                 backgroundColor: AppTheme.lightGoldColor,
@@ -61,8 +54,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ),
               ),
               const SizedBox(height: 14),
-
-              // User name
               Text(
                 displayName,
                 textAlign: TextAlign.center,
@@ -73,8 +64,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ),
               ),
               const SizedBox(height: 4),
-
-              // Email
               Text(
                 displayEmail,
                 style: GoogleFonts.inter(
@@ -83,11 +72,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-
-              // Role badge pill (white translucent)
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 5,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.18),
                   borderRadius: BorderRadius.circular(20),
@@ -115,10 +104,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           child: ListView(
             padding: const EdgeInsets.symmetric(vertical: 20),
             children: [
-              // Section header
               Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 6,
+                ),
                 child: Text(
                   'Configuración',
                   style: GoogleFonts.inter(
@@ -130,23 +120,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ),
               ),
 
-              // Notificaciones tile
               _buildSwitchTile(
                 icon: Icons.notifications_outlined,
                 iconColor: AppTheme.primaryColor,
                 title: 'Notificaciones',
-                value: _notificationsEnabled,
+                subtitle: 'Mostrar alertas en la app',
+                value: profile.settings.notificationsEnabled,
                 onChanged: (val) =>
-                    setState(() => _notificationsEnabled = val),
-              ),
-
-              // Modo oscuro tile
-              _buildSwitchTile(
-                icon: Icons.dark_mode_outlined,
-                iconColor: AppTheme.primaryColor,
-                title: 'Modo oscuro',
-                value: _darkModeEnabled,
-                onChanged: (val) => setState(() => _darkModeEnabled = val),
+                    ref.read(profileProvider.notifier).toggleNotifications(val),
               ),
 
               const Divider(
@@ -156,7 +137,44 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 color: AppTheme.borderLightColor,
               ),
 
-              // Cerrar sesión tile
+              ListTile(
+                leading: Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.info_outline_rounded,
+                    color: AppTheme.primaryColor,
+                    size: 20,
+                  ),
+                ),
+                title: Text(
+                  'Versión',
+                  style: GoogleFonts.inter(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: AppTheme.textPrimaryColor,
+                  ),
+                ),
+                subtitle: Text(
+                  profile.version ?? 'Cargando...',
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    color: AppTheme.textSecondaryColor,
+                  ),
+                ),
+              ),
+
+              const Divider(
+                height: 24,
+                indent: 20,
+                endIndent: 20,
+                color: AppTheme.borderLightColor,
+              ),
+
               ListTile(
                 leading: Container(
                   width: 38,
@@ -179,9 +197,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     color: AppTheme.errorColor,
                   ),
                 ),
-                onTap: () {
-                  ref.read(authProvider.notifier).logout();
-                },
+                onTap: () => _confirmSignOut(context, ref),
               ),
             ],
           ),
@@ -194,6 +210,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     required IconData icon,
     required Color iconColor,
     required String title,
+    required String subtitle,
     required bool value,
     required ValueChanged<bool> onChanged,
   }) {
@@ -215,12 +232,53 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           color: AppTheme.textPrimaryColor,
         ),
       ),
+      subtitle: Text(
+        subtitle,
+        style: GoogleFonts.inter(
+          fontSize: 12,
+          color: AppTheme.textSecondaryColor,
+        ),
+      ),
       trailing: Switch.adaptive(
         value: value,
         onChanged: onChanged,
-        activeColor: AppTheme.primaryColor,
+        activeThumbColor: AppTheme.primaryColor,
+      ),
+    );
+  }
+
+  void _confirmSignOut(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          'Cerrar sesión',
+          style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+        ),
+        content: Text(
+          '¿Estás seguro? Se borrarán todos los datos locales de este dispositivo.',
+          style: GoogleFonts.inter(fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => context.pop(),
+            child: Text(
+              'Cancelar',
+              style: GoogleFonts.inter(color: AppTheme.textSecondaryColor),
+            ),
+          ),
+          TextButton(
+            onPressed: () async {
+              context.pop();
+              await ref.read(authProvider.notifier).signOut();
+            },
+            child: Text(
+              'Cerrar sesión',
+              style: GoogleFonts.inter(color: AppTheme.errorColor),
+            ),
+          ),
+        ],
       ),
     );
   }
 }
-

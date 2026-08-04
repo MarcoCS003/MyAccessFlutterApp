@@ -1,90 +1,211 @@
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 
-class MockUser {
-  final String name;
-  final String email;
-  final String photoUrl;
-
-  const MockUser({
-    required this.name,
-    required this.email,
-    required this.photoUrl,
-  });
-}
-
-class AuthState {
-  final bool isAuthenticated;
-  final String role; // 'parent' o 'teacher'
-  final MockUser? user;
-
-  const AuthState({
-    required this.isAuthenticated,
-    required this.role,
-    this.user,
-  });
-
-  AuthState copyWith({
-    bool? isAuthenticated,
-    String? role,
-    MockUser? user,
-  }) {
-    return AuthState(
-      isAuthenticated: isAuthenticated ?? this.isAuthenticated,
-      role: role ?? this.role,
-      user: user ?? this.user,
-    );
-  }
-}
+import '../../../core/constants/app_constants.dart';
+import '../../../core/errors/failures.dart';
+import '../../../services/api_service.dart';
+import '../models/auth_state.dart';
+import '../models/user.dart';
 
 class AuthNotifier extends StateNotifier<AuthState> {
-  AuthNotifier()
-      : super(const AuthState(
-          isAuthenticated: false,
-          role: 'parent', // Rol inicial por defecto
-          user: null,
-        ));
-
-  void login() {
-    state = state.copyWith(
-      isAuthenticated: true,
-      user: const MockUser(
-        name: 'Juan Pérez IJL',
-        email: 'juan.perez@ijl.edu.mx',
-        photoUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80',
-      ),
-    );
-  }
-
-  void logout() {
-    state = const AuthState(
-      isAuthenticated: false,
-      role: 'parent',
-      user: null,
-    );
-  }
-
-  void toggleRole() {
-    final newRole = state.role == 'parent' ? 'teacher' : 'parent';
-    MockUser? newUser = state.user;
-    if (state.isAuthenticated) {
-      if (newRole == 'teacher') {
-        newUser = const MockUser(
-          name: 'Prof. Carlos Ortega',
-          email: 'carlos.ortega@ijl.edu.mx',
-          photoUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=150&q=80',
-        );
-      } else {
-        newUser = const MockUser(
-          name: 'Juan Pérez IJL',
-          email: 'juan.perez@ijl.edu.mx',
-          photoUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80',
-        );
-      }
+  AuthNotifier({
+    FirebaseMessaging? firebaseMessaging,
+    FlutterSecureStorage? secureStorage,
+    ApiService? apiService,
+    bool skipInitialCheck = false,
+  }) : _firebaseMessaging = firebaseMessaging ?? FirebaseMessaging.instance,
+       _secureStorage = secureStorage ?? const FlutterSecureStorage(),
+       _apiService = apiService ?? ApiService(),
+       super(const AuthState()) {
+    if (!skipInitialCheck) {
+      checkAuthStatus();
     }
-    state = state.copyWith(
-      role: newRole,
-      user: newUser,
-    );
+  }
+
+  final FirebaseMessaging _firebaseMessaging;
+  final FlutterSecureStorage _secureStorage;
+  final ApiService _apiService;
+
+  Future<void> signInWithEmailPassword(String email, String password) async {
+    try {
+      state = state.copyWith(status: AuthStatus.loading, errorMessage: null);
+
+      final fcmToken = await _getFcmTokenSafely();
+
+      final response =
+          await _apiService.post(
+                '/auth/login',
+                data: {
+                  'email': email,
+                  'password': password,
+                  'fcm_token': fcmToken,
+                },
+                requiresAuth: false,
+              )
+              as Map<String, dynamic>;
+
+      final accessToken = response['access_token'] as String? ?? '';
+      if (accessToken.isEmpty) {
+        throw Exception('El backend no devolvió token de acceso');
+      }
+
+      final user = User.fromJson(response['user'] as Map<String, dynamic>);
+
+      await _persistSession(jwtToken: accessToken, user: user);
+      await _registerFcmToken();
+      _listenToTokenRefresh();
+
+      state = AuthState(status: AuthStatus.authenticated, user: user);
+    } on Failure catch (e) {
+      state = AuthState(status: AuthStatus.error, errorMessage: e.message);
+    } catch (e, st) {
+      debugPrint('signInWithEmailPassword falló: $e\n$st');
+      state = AuthState(
+        status: AuthStatus.error,
+        errorMessage: 'Credenciales incorrectas o error del servidor',
+      );
+    }
+  }
+
+  Future<void> signUp({
+    required String name,
+    required String email,
+    required String password,
+    required String passwordConfirmation,
+  }) async {
+    try {
+      state = state.copyWith(status: AuthStatus.loading, errorMessage: null);
+
+      final fcmToken = await _getFcmTokenSafely();
+
+      final response =
+          await _apiService.post(
+                '/auth/register',
+                data: {
+                  'name': name,
+                  'email': email,
+                  'password': password,
+                  'password_confirmation': passwordConfirmation,
+                  'fcm_token': fcmToken,
+                },
+                requiresAuth: false,
+              )
+              as Map<String, dynamic>;
+
+      final accessToken = response['access_token'] as String? ?? '';
+      if (accessToken.isEmpty) {
+        throw Exception('El backend no devolvió token de acceso');
+      }
+
+      final user = User.fromJson(response['user'] as Map<String, dynamic>);
+
+      await _persistSession(jwtToken: accessToken, user: user);
+      await _registerFcmToken();
+      _listenToTokenRefresh();
+
+      state = AuthState(status: AuthStatus.authenticated, user: user);
+    } on Failure catch (e) {
+      state = AuthState(status: AuthStatus.error, errorMessage: e.message);
+    } catch (e, st) {
+      debugPrint('signUp falló: $e\n$st');
+      state = AuthState(
+        status: AuthStatus.error,
+        errorMessage: 'Error al registrar. Verifica tus datos.',
+      );
+    }
+  }
+
+  Future<void> signOut() async {
+    try {
+      await _secureStorage.delete(key: AppConstants.jwtTokenKey);
+      // La BD local (hijos, notificaciones, settings) se conserva al cerrar
+      // sesión: los datos de cada cuenta están namespacedos por userKey
+      // (email) en Hive, así que nada se mezcla al alternar cuentas en el
+      // mismo dispositivo. La sesión termina al borrar el JWT;
+      // checkAuthStatus exige token + usuario, así que sin token queda no
+      // autenticado. auth_box['user'] se conserva como última cuenta
+      // conocida (la usan los handlers FCM para namespacer escrituras).
+      state = const AuthState(status: AuthStatus.unauthenticated);
+    } catch (e) {
+      state = AuthState(
+        status: AuthStatus.error,
+        errorMessage: 'Error al cerrar sesión: ${e.toString()}',
+      );
+    }
+  }
+
+  Future<void> checkAuthStatus() async {
+    try {
+      final token = await _secureStorage.read(key: AppConstants.jwtTokenKey);
+      final box = Hive.box(AppConstants.authBox);
+      final userData = box.get('user') as Map<dynamic, dynamic>?;
+
+      if (token != null && token.isNotEmpty && userData != null) {
+        final user = User.fromJson(
+          userData.map((key, value) => MapEntry(key.toString(), value)),
+        );
+        state = AuthState(status: AuthStatus.authenticated, user: user);
+      } else {
+        state = const AuthState(status: AuthStatus.unauthenticated);
+      }
+    } catch (e) {
+      debugPrint('Error checking auth status: $e');
+      state = const AuthState(status: AuthStatus.unauthenticated);
+    }
+  }
+
+  Future<void> _persistSession({
+    required String jwtToken,
+    required User user,
+  }) async {
+    await _secureStorage.write(key: AppConstants.jwtTokenKey, value: jwtToken);
+    final box = Hive.box(AppConstants.authBox);
+    await box.put('user', user.toJson());
+  }
+
+  Future<void> _registerFcmToken() async {
+    try {
+      final fcmToken = await _getFcmTokenSafely();
+      if (fcmToken == null || fcmToken.isEmpty) return;
+
+      await _apiService.post(
+        '/update-fcm-token',
+        data: {'fcm_token': fcmToken},
+      );
+      debugPrint('FCM token registered successfully');
+    } catch (e) {
+      debugPrint('Failed to register FCM token: $e');
+    }
+  }
+
+  /// Obtiene el FCM token sin romper el flujo de auth cuando no está
+  /// disponible (en iOS sin entitlement de Push / APNs no configurado,
+  /// getToken() lanza `apns-token-not-set`). El login/registro deben
+  /// continuar aunque el dispositivo no pueda recibir push.
+  Future<String?> _getFcmTokenSafely() async {
+    try {
+      return await _firebaseMessaging.getToken();
+    } catch (e) {
+      debugPrint('FCM token no disponible (se continúa sin push): $e');
+      return null;
+    }
+  }
+
+  void _listenToTokenRefresh() {
+    _firebaseMessaging.onTokenRefresh.listen((newToken) async {
+      try {
+        await _apiService.post(
+          '/update-fcm-token',
+          data: {'fcm_token': newToken},
+        );
+        debugPrint('FCM token refreshed and registered');
+      } catch (e) {
+        debugPrint('Failed to register refreshed FCM token: $e');
+      }
+    });
   }
 }
 

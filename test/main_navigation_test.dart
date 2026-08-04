@@ -7,6 +7,11 @@ import 'package:cliente_flutter_myaccess/features/home/screens/main_navigation_s
 import 'package:cliente_flutter_myaccess/features/padres/screens/home_padre_screen.dart';
 import 'package:cliente_flutter_myaccess/features/maestros/screens/home_maestro_screen.dart';
 import 'package:cliente_flutter_myaccess/features/auth/providers/auth_provider.dart';
+import 'package:cliente_flutter_myaccess/features/auth/models/auth_state.dart';
+import 'package:cliente_flutter_myaccess/features/auth/models/user.dart';
+
+import 'mocks/auth_mocks.dart';
+import 'test_helpers.dart';
 
 class MockHttpOverrides extends HttpOverrides {
   @override
@@ -46,7 +51,8 @@ class _MockHttpHeaders implements HttpHeaders {
   dynamic noSuchMethod(Invocation invocation) => null;
 }
 
-class _MockHttpClientResponse extends Stream<List<int>> implements HttpClientResponse {
+class _MockHttpClientResponse extends Stream<List<int>>
+    implements HttpClientResponse {
   @override
   StreamSubscription<List<int>> listen(
     void Function(List<int> event)? onData, {
@@ -81,69 +87,130 @@ class _MockHttpClientResponse extends Stream<List<int>> implements HttpClientRes
 }
 
 final List<int> _transparentImage = [
-  0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 0x01, 0x00, 0x01, 0x00, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0xff, 0xff, 0xff, 0x21, 0xf9, 0x04, 0x01, 0x00, 0x00, 0x00, 0x00, 0x2c, 0x00, 0x00, 0x00, 0x00,
-  0x01, 0x00, 0x01, 0x00, 0x00, 0x02, 0x02, 0x44, 0x01, 0x00, 0x3b
+  0x47,
+  0x49,
+  0x46,
+  0x38,
+  0x39,
+  0x61,
+  0x01,
+  0x00,
+  0x01,
+  0x00,
+  0x80,
+  0x00,
+  0x00,
+  0x00,
+  0x00,
+  0x00,
+  0xff,
+  0xff,
+  0xff,
+  0x21,
+  0xf9,
+  0x04,
+  0x01,
+  0x00,
+  0x00,
+  0x00,
+  0x00,
+  0x2c,
+  0x00,
+  0x00,
+  0x00,
+  0x00,
+  0x01,
+  0x00,
+  0x01,
+  0x00,
+  0x00,
+  0x02,
+  0x02,
+  0x44,
+  0x01,
+  0x00,
+  0x3b,
 ];
 
-class MockAuthNotifier extends AuthNotifier {
-  MockAuthNotifier(AuthState initialState) {
-    state = initialState;
-  }
-}
-
 void main() {
-  setUpAll(() {
+  setUpAll(() async {
     HttpOverrides.global = MockHttpOverrides();
+    await initializeTestHive();
   });
 
-  testWidgets('MainNavigationScreen debe mostrar BottomNavigationBar', (tester) async {
+  testWidgets('MainNavigationScreen debe mostrar BottomNavigationBar', (
+    tester,
+  ) async {
     await tester.pumpWidget(
-      const ProviderScope(
-        child: MaterialApp(
-          home: MainNavigationScreen(),
-        ),
+      ProviderScope(
+        overrides: [
+          authProvider.overrideWith(
+            (ref) => MockAuthNotifier(
+              AuthState(
+                status: AuthStatus.authenticated,
+                user: User(
+                  id: 1,
+                  name: 'Juan Perez',
+                  email: 'juan@ijl.mx',
+                  role: 'parent',
+                ),
+              ),
+            ),
+          ),
+          emptyChildrenProviderOverride,
+        ],
+        child: const MaterialApp(home: MainNavigationScreen()),
       ),
     );
     expect(find.byType(BottomNavigationBar), findsOneWidget);
   });
 
-  testWidgets('MainNavigationScreen en rol Padre muestra HomePadreScreen', (tester) async {
-    const parentState = AuthState(
-      isAuthenticated: true,
-      role: 'parent',
-      user: MockUser(name: 'Juan Perez', email: 'juan@ijl.mx', photoUrl: ''),
+  testWidgets('MainNavigationScreen en rol Padre muestra HomePadreScreen', (
+    tester,
+  ) async {
+    final parentState = AuthState(
+      status: AuthStatus.authenticated,
+      user: User(
+        id: 1,
+        name: 'Juan Perez',
+        email: 'juan@ijl.mx',
+        role: 'parent',
+      ),
     );
 
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
           authProvider.overrideWith((ref) => MockAuthNotifier(parentState)),
+          emptyChildrenProviderOverride,
         ],
-        child: const MaterialApp(
-          home: MainNavigationScreen(),
-        ),
+        child: const MaterialApp(home: MainNavigationScreen()),
       ),
     );
 
     expect(find.byType(HomePadreScreen), findsOneWidget);
   });
 
-  testWidgets('MainNavigationScreen en rol Docente muestra HomeMaestroScreen', (tester) async {
-    const teacherState = AuthState(
-      isAuthenticated: true,
-      role: 'teacher',
-      user: MockUser(name: 'Prof. Carlos', email: 'carlos@ijl.mx', photoUrl: ''),
+  testWidgets('MainNavigationScreen en rol Docente muestra HomeMaestroScreen', (
+    tester,
+  ) async {
+    final teacherState = AuthState(
+      status: AuthStatus.authenticated,
+      user: User(
+        id: 2,
+        name: 'Prof. Carlos',
+        email: 'carlos@ijl.mx',
+        role: 'teacher',
+      ),
     );
 
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
           authProvider.overrideWith((ref) => MockAuthNotifier(teacherState)),
+          emptyChildrenProviderOverride,
         ],
-        child: const MaterialApp(
-          home: MainNavigationScreen(),
-        ),
+        child: const MaterialApp(home: MainNavigationScreen()),
       ),
     );
 

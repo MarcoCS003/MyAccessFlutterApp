@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
+
 import '../../../core/theme/theme.dart';
-import '../providers/children_provider.dart';
+import '../models/qr_code_data.dart';
 
 class LinkChildScreen extends ConsumerStatefulWidget {
   const LinkChildScreen({super.key});
@@ -14,7 +18,11 @@ class LinkChildScreen extends ConsumerStatefulWidget {
 class _LinkChildScreenState extends ConsumerState<LinkChildScreen>
     with SingleTickerProviderStateMixin {
   final TextEditingController _codeController = TextEditingController();
+  final MobileScannerController _scannerController = MobileScannerController();
   bool _isManualTab = false;
+  String? _lastScannedCode;
+  DateTime? _lastScanTime;
+  bool _isNavigating = false;
   late AnimationController _animationController;
 
   @override
@@ -28,9 +36,69 @@ class _LinkChildScreenState extends ConsumerState<LinkChildScreen>
 
   @override
   void dispose() {
+    _scannerController.dispose();
     _animationController.dispose();
     _codeController.dispose();
     super.dispose();
+  }
+
+  /// Normaliza el contenido leído del QR. El backend genera códigos con
+  /// formato JSON: `{"idS": "123", "personId": "STU005", "type": "student"}`
+  /// donde `personId` es la referencia bancaria/qr_code del estudiante.
+  QrCodeData _parseQrData(String code) {
+    return QrCodeData.fromCode(code);
+  }
+
+  void _onQrDetected(BarcodeCapture capture) {
+    if (_isNavigating) return;
+
+    final barcode = capture.barcodes.firstOrNull;
+    final rawCode = barcode?.rawValue;
+    if (rawCode == null || rawCode.isEmpty) return;
+
+    final now = DateTime.now();
+    if (_lastScanTime != null && now.difference(_lastScanTime!).inSeconds < 3) {
+      return;
+    }
+    if (_lastScannedCode == rawCode) return;
+
+    _lastScanTime = now;
+    _lastScannedCode = rawCode;
+
+    debugPrint('[LinkChildScreen] QR detectado: $rawCode');
+    HapticFeedback.lightImpact();
+
+    final qrData = _parseQrData(rawCode);
+    debugPrint(
+      '[LinkChildScreen] Código parseado: id=${qrData.id}, ref=${qrData.reference}',
+    );
+
+    if (qrData.reference.isNotEmpty) {
+      _codeController.text = qrData.reference;
+      _showConfirmation(qrData);
+    }
+  }
+
+  void _showConfirmation(QrCodeData qrData) async {
+    if (_isNavigating || qrData.reference.trim().isEmpty) return;
+    setState(() => _isNavigating = true);
+
+    await _scannerController.stop();
+
+    if (!mounted) return;
+    final idParam = qrData.id != null ? '&id=${qrData.id}' : '';
+    await context.push('/link-child/confirm?code=${qrData.reference}$idParam');
+
+    if (mounted) {
+      setState(() {
+        _isNavigating = false;
+        _lastScannedCode = null;
+        _lastScanTime = null;
+      });
+      if (!_isManualTab) {
+        await _scannerController.start();
+      }
+    }
   }
 
   @override
@@ -38,61 +106,134 @@ class _LinkChildScreenState extends ConsumerState<LinkChildScreen>
     return Scaffold(
       appBar: AppBar(
         title: const Text('Vincular Hijo'),
+        backgroundColor: AppTheme.primaryColor,
+        foregroundColor: Colors.white,
       ),
       body: Column(
         children: [
-          // Top 60% - Área de Escáner de Cámara
           Expanded(
             flex: 6,
             child: Stack(
               children: [
-                // Simulación de vista previa de cámara
-                Container(
-                  color: Colors.black87,
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.camera_alt_outlined,
-                            color: Colors.white24, size: 64),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Escáner Activo',
-                          style: GoogleFonts.inter(
-                              color: Colors.white38, fontSize: 14),
+                if (!_isManualTab)
+                  MobileScanner(
+                    controller: _scannerController,
+                    onDetect: _onQrDetected,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error) {
+                      debugPrint(
+                        '[MobileScanner] errorBuilder: ${error.errorCode} | '
+                        '${error.errorDetails?.message} | '
+                        'permissionDenied=${error.errorCode == MobileScannerErrorCode.permissionDenied}',
+                      );
+                      return Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24.0),
+                          child: Container(
+                            padding: const EdgeInsets.all(24.0),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.95),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.error_outline,
+                                  color: AppTheme.errorColor,
+                                  size: 64,
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'No se pudo iniciar la cámara',
+                                  textAlign: TextAlign.center,
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.black,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  error.toString(),
+                                  textAlign: TextAlign.center,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 13,
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                                const SizedBox(height: 24),
+                                ElevatedButton.icon(
+                                  onPressed: () {
+                                    debugPrint(
+                                      '[MobileScanner] retrying start...',
+                                    );
+                                    _scannerController.start();
+                                  },
+                                  icon: const Icon(Icons.refresh),
+                                  label: const Text('Reintentar'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppTheme.primaryColor,
+                                    foregroundColor: Colors.white,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
-                      ],
+                      );
+                    },
+                  ),
+                if (_isManualTab)
+                  Container(
+                    color: Colors.black87,
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(
+                            Icons.keyboard_alt_outlined,
+                            color: Colors.white24,
+                            size: 64,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Modo manual activado',
+                            style: GoogleFonts.inter(
+                              color: Colors.white38,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-
-                // Overlay con marco central de escaneo
                 if (!_isManualTab)
                   LayoutBuilder(
                     builder: (context, constraints) {
                       final size = constraints.maxWidth * 0.6;
                       return Stack(
                         children: [
-                          // Caja de Escaneo Animada
                           Center(
                             child: Container(
                               width: size,
                               height: size,
                               decoration: BoxDecoration(
                                 border: Border.all(
-                                    color: AppTheme.accentLightColor,
-                                    width: 2),
+                                  color: AppTheme.accentLightColor,
+                                  width: 2,
+                                ),
                                 borderRadius: BorderRadius.circular(16),
                               ),
                             ),
                           ),
-                          // Línea Láser Animada
                           AnimatedBuilder(
                             animation: _animationController,
                             builder: (context, child) {
                               final topOffset =
                                   (constraints.maxHeight - size) / 2 +
-                                      (_animationController.value * size);
+                                  (_animationController.value * size);
                               return Positioned(
                                 top: topOffset,
                                 left: (constraints.maxWidth - size) / 2,
@@ -118,17 +259,16 @@ class _LinkChildScreenState extends ConsumerState<LinkChildScreen>
                           ? 'Ingresa el código en el panel inferior'
                           : 'Alinea el código QR dentro del recuadro',
                       style: GoogleFonts.inter(
-                          color: Colors.white,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500),
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ),
                 ),
               ],
             ),
           ),
-
-          // Bottom 40% - Tarjeta blanca con Tab Selector
           Expanded(
             flex: 4,
             child: Container(
@@ -152,13 +292,11 @@ class _LinkChildScreenState extends ConsumerState<LinkChildScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Tab selector
                     Row(
                       children: [
                         Expanded(
                           child: GestureDetector(
-                            onTap: () =>
-                                setState(() => _isManualTab = false),
+                            onTap: () => setState(() => _isManualTab = false),
                             child: Column(
                               children: [
                                 Text(
@@ -183,8 +321,7 @@ class _LinkChildScreenState extends ConsumerState<LinkChildScreen>
                         ),
                         Expanded(
                           child: GestureDetector(
-                            onTap: () =>
-                                setState(() => _isManualTab = true),
+                            onTap: () => setState(() => _isManualTab = true),
                             child: Column(
                               children: [
                                 Text(
@@ -210,65 +347,92 @@ class _LinkChildScreenState extends ConsumerState<LinkChildScreen>
                       ],
                     ),
                     const SizedBox(height: 24),
-
-                    // Contenido según Tab
                     Expanded(
                       child: _isManualTab
-                          ? Row(
+                          ? Column(
                               children: [
-                                Expanded(
-                                  child: TextField(
-                                    controller: _codeController,
-                                    decoration: InputDecoration(
-                                      labelText: 'Código del alumno',
-                                      hintText: 'Ej: IJL-12345',
-                                      border: OutlineInputBorder(
-                                        borderRadius:
-                                            BorderRadius.circular(12),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: TextField(
+                                        controller: _codeController,
+                                        decoration: InputDecoration(
+                                          labelText: 'Código del alumno',
+                                          hintText: 'Ej: IJL-12345',
+                                          border: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
+                                          ),
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                ElevatedButton(
-                                  onPressed: () {
-                                    if (_codeController.text.isNotEmpty) {
-                                      ref
-                                          .read(childrenProvider.notifier)
-                                          .linkChildManually(
-                                              _codeController.text);
-                                      Navigator.pop(context);
-                                    }
-                                  },
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor:
-                                        AppTheme.themeNavyColor,
-                                    foregroundColor: Colors.white,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius:
-                                          BorderRadius.circular(12),
+                                    const SizedBox(width: 12),
+                                    ElevatedButton(
+                                      onPressed: () => _showConfirmation(
+                                        QrCodeData.fromCode(
+                                          _codeController.text,
+                                        ),
+                                      ),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor:
+                                            AppTheme.themeNavyColor,
+                                        foregroundColor: Colors.white,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                        ),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 24,
+                                          vertical: 16,
+                                        ),
+                                      ),
+                                      child: const Text('Buscar'),
                                     ),
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 24, vertical: 16),
-                                  ),
-                                  child: const Text('Buscar'),
+                                  ],
                                 ),
                               ],
                             )
-                          : Row(
+                          : Column(
                               children: [
-                                const Icon(Icons.info_outline_rounded,
-                                    color: AppTheme.textSecondaryColor),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    'El código QR se encuentra impreso en la credencial escolar física del estudiante.',
-                                    style: GoogleFonts.inter(
-                                        fontSize: 13,
-                                        color:
-                                            AppTheme.textSecondaryColor),
-                                  ),
+                                Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.info_outline_rounded,
+                                      color: AppTheme.textSecondaryColor,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        'El código QR se encuentra impreso en la credencial escolar física del estudiante.',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 13,
+                                          color: AppTheme.textSecondaryColor,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
+                                if (_lastScannedCode != null) ...[
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    'Último código detectado:',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 12,
+                                      color: AppTheme.textSecondaryColor,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    _lastScannedCode!,
+                                    style: GoogleFonts.inter(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppTheme.textPrimaryColor,
+                                    ),
+                                  ),
+                                ],
                               ],
                             ),
                     ),

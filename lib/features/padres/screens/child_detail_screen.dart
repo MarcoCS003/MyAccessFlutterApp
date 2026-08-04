@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/errors/failures.dart';
 import '../../../core/theme/theme.dart';
+import '../models/child.dart';
+import '../models/timeline_event.dart';
 import '../providers/children_provider.dart';
-import 'child_qr_screen.dart';
 
 class ChildDetailScreen extends ConsumerStatefulWidget {
   final String childId;
@@ -21,29 +24,86 @@ class _ChildDetailScreenState extends ConsumerState<ChildDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final children = ref.watch(childrenProvider);
+    final childrenAsync = ref.watch(childrenWithActivityProvider);
 
-    final child = children.firstWhere(
-      (c) => c.id == widget.childId,
-      orElse: () => const Child(
-        id: '',
-        name: 'Estudiante no encontrado',
-        grade: '',
-        group: '',
-        avatarUrl: '',
-        status: 'outside',
-        lastEventText: '',
-        events: [],
-      ),
-    );
-
-    if (child.id.isEmpty) {
-      return Scaffold(
+    return childrenAsync.when(
+      loading: () =>
+          const Scaffold(body: Center(child: CircularProgressIndicator())),
+      error: (e, _) => Scaffold(
         appBar: AppBar(title: const Text('Detalle')),
-        body: const Center(child: Text('Estudiante no encontrado.')),
-      );
-    }
+        body: Center(child: Text('Error: $e')),
+      ),
+      data: (children) {
+        final childId = int.tryParse(widget.childId);
+        final child = children.firstWhere(
+          (c) => c.id == childId,
+          orElse: () => Child(
+            id: -1,
+            name: 'Estudiante no encontrado',
+            grade: '',
+            group: '',
+          ),
+        );
 
+        if (child.id == -1) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('Detalle')),
+            body: const Center(child: Text('Estudiante no encontrado.')),
+          );
+        }
+
+        return _ChildDetailContent(
+          child: child,
+          selectedFilter: _selectedFilter,
+          filters: _filters,
+          onFilterChanged: (index) => setState(() => _selectedFilter = index),
+        );
+      },
+    );
+  }
+}
+
+class _ChildDetailContent extends ConsumerWidget {
+  final Child child;
+  final int selectedFilter;
+  final List<String> filters;
+  final ValueChanged<int> onFilterChanged;
+
+  const _ChildDetailContent({
+    required this.child,
+    required this.selectedFilter,
+    required this.filters,
+    required this.onFilterChanged,
+  });
+
+  List<TimelineEvent> _filterEvents(List<TimelineEvent> events) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    return events.where((event) {
+      final date = DateTime(
+        event.recordedAt.year,
+        event.recordedAt.month,
+        event.recordedAt.day,
+      );
+      switch (selectedFilter) {
+        case 0: // Hoy
+          return date.isAtSameMomentAs(today);
+        case 1: // Semana
+          return date.isAfter(today.subtract(const Duration(days: 7))) ||
+              date.isAtSameMomentAs(today);
+        case 2: // Mes
+          return date.isAfter(today.subtract(const Duration(days: 30))) ||
+              date.isAtSameMomentAs(today);
+        default:
+          return true;
+      }
+    }).toList();
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final timelineAsync = ref.watch(childTimelineProvider(child.id));
     final isInside = child.status == 'inside';
     final firstName = child.name.split(' ').first;
     final initials = child.name
@@ -51,14 +111,6 @@ class _ChildDetailScreenState extends ConsumerState<ChildDetailScreen> {
         .take(2)
         .map((w) => w.isNotEmpty ? w[0].toUpperCase() : '')
         .join();
-
-    // Compute stats from events
-    final todayEntries = child.events
-        .where((e) => e.type == 'entry' && e.date.startsWith('Hoy'))
-        .length;
-    final todayExits = child.events
-        .where((e) => e.type == 'exit' && e.date.startsWith('Hoy'))
-        .length;
 
     return Scaffold(
       backgroundColor: AppTheme.bgLightColor,
@@ -74,26 +126,11 @@ class _ChildDetailScreenState extends ConsumerState<ChildDetailScreen> {
             color: Colors.white,
           ),
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.qr_code_rounded, color: Colors.white),
-            tooltip: 'Ver QR',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => ChildQrScreen(child: child),
-                ),
-              );
-            },
-          ),
-        ],
       ),
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // ── Navy Header ────────────────────────────────────────────────
             Container(
               padding: const EdgeInsets.fromLTRB(20, 28, 20, 28),
               decoration: const BoxDecoration(
@@ -105,7 +142,6 @@ class _ChildDetailScreenState extends ConsumerState<ChildDetailScreen> {
               ),
               child: Column(
                 children: [
-                  // Big CircleAvatar with gold initials
                   CircleAvatar(
                     radius: 48,
                     backgroundColor: AppTheme.lightGoldColor,
@@ -119,8 +155,6 @@ class _ChildDetailScreenState extends ConsumerState<ChildDetailScreen> {
                     ),
                   ),
                   const SizedBox(height: 14),
-
-                  // Child full name
                   Text(
                     child.name,
                     style: GoogleFonts.poppins(
@@ -131,8 +165,6 @@ class _ChildDetailScreenState extends ConsumerState<ChildDetailScreen> {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 4),
-
-                  // Grade & Group
                   Text(
                     '${child.grade} • Grupo ${child.group}',
                     style: GoogleFonts.inter(
@@ -142,57 +174,75 @@ class _ChildDetailScreenState extends ConsumerState<ChildDetailScreen> {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 20),
-
-                  // Stats Row
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      _StatCell(
-                        label: 'Entradas hoy',
-                        value: '$todayEntries',
-                        icon: Icons.login_rounded,
-                        iconColor: AppTheme.successColor,
-                      ),
-                      _Divider(),
-                      _StatCell(
-                        label: 'Salidas hoy',
-                        value: '$todayExits',
-                        icon: Icons.logout_rounded,
-                        iconColor: Colors.orangeAccent,
-                      ),
-                      _Divider(),
-                      _StatCell(
-                        label: 'Estado',
-                        value: isInside ? 'Dentro' : 'Fuera',
-                        icon: isInside
-                            ? Icons.check_circle_rounded
-                            : Icons.radio_button_unchecked_rounded,
-                        iconColor:
-                            isInside ? AppTheme.successColor : Colors.grey,
-                      ),
-                    ],
+                  timelineAsync.when(
+                    loading: () => const Center(
+                      child: CircularProgressIndicator(color: Colors.white),
+                    ),
+                    error: (e, _) => Text(
+                      'No se pudo cargar el historial',
+                      style: GoogleFonts.inter(color: Colors.white70),
+                    ),
+                    data: (events) {
+                      final filtered = _filterEvents(events);
+                      final todayEntries = filtered
+                          .where((e) => e.type == 'check_in')
+                          .length;
+                      final todayExits = filtered
+                          .where((e) => e.type == 'check_out')
+                          .length;
+                      return Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          _StatCell(
+                            label: 'Entradas',
+                            value: '$todayEntries',
+                            icon: Icons.login_rounded,
+                            iconColor: AppTheme.successColor,
+                          ),
+                          _Divider(),
+                          _StatCell(
+                            label: 'Salidas',
+                            value: '$todayExits',
+                            icon: Icons.logout_rounded,
+                            iconColor: Colors.orangeAccent,
+                          ),
+                          _Divider(),
+                          _StatCell(
+                            label: 'Estado',
+                            value: isInside ? 'Dentro' : 'Fuera',
+                            icon: isInside
+                                ? Icons.check_circle_rounded
+                                : Icons.radio_button_unchecked_rounded,
+                            iconColor: isInside
+                                ? AppTheme.successColor
+                                : Colors.grey,
+                          ),
+                        ],
+                      );
+                    },
                   ),
                 ],
               ),
             ),
-
             const SizedBox(height: 20),
-
-            // ── Filter Chips ───────────────────────────────────────────────
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Row(
-                children: List.generate(_filters.length, (i) {
-                  final selected = _selectedFilter == i;
+                children: List.generate(filters.length, (i) {
+                  final selected = selectedFilter == i;
                   return Padding(
-                    padding: EdgeInsets.only(right: i < _filters.length - 1 ? 10 : 0),
+                    padding: EdgeInsets.only(
+                      right: i < filters.length - 1 ? 10 : 0,
+                    ),
                     child: ChoiceChip(
                       label: Text(
-                        _filters[i],
+                        filters[i],
                         style: GoogleFonts.inter(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
-                          color: selected ? Colors.white : AppTheme.primaryColor,
+                          color: selected
+                              ? Colors.white
+                              : AppTheme.primaryColor,
                         ),
                       ),
                       selected: selected,
@@ -207,16 +257,13 @@ class _ChildDetailScreenState extends ConsumerState<ChildDetailScreen> {
                         ),
                       ),
                       showCheckmark: false,
-                      onSelected: (_) => setState(() => _selectedFilter = i),
+                      onSelected: (_) => onFilterChanged(i),
                     ),
                   );
                 }),
               ),
             ),
-
             const SizedBox(height: 16),
-
-            // ── Timeline Section Title ─────────────────────────────────────
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Text(
@@ -228,41 +275,157 @@ class _ChildDetailScreenState extends ConsumerState<ChildDetailScreen> {
                 ),
               ),
             ),
-
             const SizedBox(height: 12),
-
-            // ── Timeline Events ────────────────────────────────────────────
-            if (child.events.isEmpty)
-              const Padding(
+            timelineAsync.when(
+              loading: () => const Padding(
                 padding: EdgeInsets.all(32.0),
-                child: Center(
-                  child: Text('No hay eventos registrados recientemente.'),
-                ),
-              )
-            else
-              ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: child.events.length,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-                itemBuilder: (context, index) {
-                  final event = child.events[index];
-                  return _TimelineEventTile(
-                    event: event,
-                    isLast: index == child.events.length - 1,
-                  );
-                },
+                child: Center(child: CircularProgressIndicator()),
               ),
-
+              error: (e, _) => Padding(
+                padding: const EdgeInsets.all(32.0),
+                child: Center(child: Text('Error: $e')),
+              ),
+              data: (events) {
+                final filtered = _filterEvents(events);
+                if (filtered.isEmpty) {
+                  return const Padding(
+                    padding: EdgeInsets.all(32.0),
+                    child: Center(
+                      child: Text(
+                        'No hay eventos registrados para este período.',
+                      ),
+                    ),
+                  );
+                }
+                return ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: filtered.length,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 4,
+                  ),
+                  itemBuilder: (context, index) {
+                    final event = filtered[index];
+                    return _TimelineEventTile(
+                      event: event,
+                      isLast: index == filtered.length - 1,
+                    );
+                  },
+                );
+              },
+            ),
+            const SizedBox(height: 24),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: SizedBox(
+                height: 50,
+                child: OutlinedButton.icon(
+                  onPressed: () => _confirmUnlink(context, ref, child),
+                  icon: const Icon(
+                    Icons.link_off_rounded,
+                    color: AppTheme.errorColor,
+                  ),
+                  label: Text(
+                    'Desvincular alumno',
+                    style: GoogleFonts.inter(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.errorColor,
+                    ),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: AppTheme.errorColor),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+            ),
             const SizedBox(height: 24),
           ],
         ),
       ),
     );
   }
+
+  Future<void> _confirmUnlink(
+    BuildContext context,
+    WidgetRef ref,
+    Child child,
+  ) async {
+    final shouldUnlink = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          '¿Desvincular alumno?',
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+        ),
+        content: Text(
+          '¿Estás seguro de que deseas dejar de recibir notificaciones de ${child.name}?',
+          style: GoogleFonts.inter(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(
+              'Cancelar',
+              style: GoogleFonts.inter(color: AppTheme.textSecondaryColor),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(
+              'Desvincular',
+              style: GoogleFonts.inter(color: AppTheme.errorColor),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldUnlink != true || !context.mounted) return;
+
+    if (child.qrCode == null || child.qrCode!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'El alumno no tiene un código de referencia para desvincular.',
+          ),
+          backgroundColor: AppTheme.errorColor,
+        ),
+      );
+      return;
+    }
+
+    try {
+      await ref.read(childrenProvider.notifier).unlinkChild(child.qrCode!);
+      if (context.mounted) {
+        context.go('/home');
+      }
+    } on Failure catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.message),
+            backgroundColor: AppTheme.errorColor,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Error al desvincular alumno'),
+            backgroundColor: AppTheme.errorColor,
+          ),
+        );
+      }
+    }
+  }
 }
 
-// ── Stat Cell Widget ──────────────────────────────────────────────────────────
 class _StatCell extends StatelessWidget {
   final String label;
   final String value;
@@ -302,7 +465,6 @@ class _StatCell extends StatelessWidget {
   }
 }
 
-// ── Vertical Divider ──────────────────────────────────────────────────────────
 class _Divider extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -314,7 +476,6 @@ class _Divider extends StatelessWidget {
   }
 }
 
-// ── Timeline Event Tile ───────────────────────────────────────────────────────
 class _TimelineEventTile extends StatelessWidget {
   final TimelineEvent event;
   final bool isLast;
@@ -323,31 +484,14 @@ class _TimelineEventTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Color eventColor;
-    IconData eventIcon;
-    String badgeLabel;
-
-    switch (event.type) {
-      case 'entry':
-        eventColor = AppTheme.successColor;
-        eventIcon = Icons.login_rounded;
-        badgeLabel = 'Entrada';
-        break;
-      case 'exit':
-        eventColor = Colors.orange;
-        eventIcon = Icons.logout_rounded;
-        badgeLabel = 'Salida';
-        break;
-      default:
-        eventColor = AppTheme.errorColor;
-        eventIcon = Icons.warning_amber_rounded;
-        badgeLabel = 'Alerta';
-    }
+    final isEntry = event.type == 'check_in';
+    final eventColor = isEntry ? AppTheme.successColor : Colors.orange;
+    final eventIcon = isEntry ? Icons.login_rounded : Icons.logout_rounded;
+    final badgeLabel = isEntry ? 'Entrada' : 'Salida';
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Icon + connector line
         Column(
           children: [
             Container(
@@ -360,16 +504,10 @@ class _TimelineEventTile extends StatelessWidget {
               child: Icon(eventIcon, color: eventColor, size: 18),
             ),
             if (!isLast)
-              Container(
-                width: 2,
-                height: 54,
-                color: AppTheme.borderLightColor,
-              ),
+              Container(width: 2, height: 54, color: AppTheme.borderLightColor),
           ],
         ),
         const SizedBox(width: 14),
-
-        // Event card
         Expanded(
           child: Container(
             margin: const EdgeInsets.only(bottom: 12),
@@ -392,10 +530,11 @@ class _TimelineEventTile extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    // Badge pill
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 3),
+                        horizontal: 10,
+                        vertical: 3,
+                      ),
                       decoration: BoxDecoration(
                         color: eventColor.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(20),
@@ -409,7 +548,6 @@ class _TimelineEventTile extends StatelessWidget {
                         ),
                       ),
                     ),
-                    // Time
                     Text(
                       event.time,
                       style: GoogleFonts.inter(
@@ -429,14 +567,16 @@ class _TimelineEventTile extends StatelessWidget {
                     color: AppTheme.textPrimaryColor,
                   ),
                 ),
-                const SizedBox(height: 3),
-                Text(
-                  event.description,
-                  style: GoogleFonts.inter(
-                    fontSize: 13,
-                    color: AppTheme.textSecondaryColor,
+                if (event.location != null && event.location!.isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    event.location!,
+                    style: GoogleFonts.inter(
+                      fontSize: 13,
+                      color: AppTheme.textSecondaryColor,
+                    ),
                   ),
-                ),
+                ],
                 const SizedBox(height: 3),
                 Text(
                   event.date,

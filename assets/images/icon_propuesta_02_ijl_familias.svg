@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">IJL Familias</title>
+  <desc id="desc">Dos figuras familiares protegidas por un escudo institucional.</desc>
+  <rect width="512" height="512" rx="112" fill="#1B3A6B"/>
+  <path d="M256 68 398 124v121c0 86-56 155-142 199-86-44-142-113-142-199V124z" fill="none" stroke="#FEDB9B" stroke-width="18" stroke-linejoin="round"/>
+  <g fill="#FFFFFF">
+    <circle cx="199" cy="202" r="34"/>
+    <path d="M132 360c2-54 29-92 67-92s65 38 67 92z"/>
+    <circle cx="313" cy="220" r="25"/>
+    <path d="M258 360c2-43 23-72 55-72s53 29 55 72z"/>
+  </g>
+  <path d="M211 317c18 15 40 22 67 22 22 0 43-5 62-16" fill="none" stroke="#C5A56F" stroke-width="13" stroke-linecap="round"/>
+  <path d="m217 344 25 25 52-56" fill="none" stroke="#FEDB9B" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

@@ -3,7 +3,9 @@ import 'package:cliente_flutter_myaccess/core/theme/theme.dart';
 
 void main() {
   group('AppTheme Integration Tests', () {
-    testWidgets('lightTheme is configured with correct colors', (WidgetTester tester) async {
+    testWidgets('lightTheme is configured with correct colors', (
+      WidgetTester tester,
+    ) async {
       final theme = AppTheme.lightTheme;
       expect(theme.useMaterial3, isTrue);
       expect(theme.colorScheme.primary, AppTheme.primaryColor);
@@ -12,7 +14,9 @@ void main() {
       expect(theme.scaffoldBackgroundColor, AppTheme.backgroundColor);
     });
 
-    testWidgets('lightTheme has correct appBar styling', (WidgetTester tester) async {
+    testWidgets('lightTheme has correct appBar styling', (
+      WidgetTester tester,
+    ) async {
       final theme = AppTheme.lightTheme;
       expect(theme.appBarTheme.backgroundColor, AppTheme.primaryColor);
       expect(theme.appBarTheme.centerTitle, isTrue);

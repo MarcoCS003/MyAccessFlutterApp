@@ -3,8 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/auth/providers/auth_provider.dart';
 import '../../features/auth/screens/login_screen.dart';
+import '../../features/auth/screens/register_screen.dart';
+import '../../features/auth/screens/forgot_password_screen.dart';
+import '../../features/auth/screens/reset_password_screen.dart';
 import '../../features/padres/screens/link_child_screen.dart';
+import '../../features/padres/screens/link_child_confirm_screen.dart';
 import '../../features/padres/screens/child_detail_screen.dart';
+import '../../features/padres/screens/child_qr_screen.dart';
 import '../../features/maestros/screens/teacher_qr_screen.dart';
 import '../../features/notifications/screens/notifications_screen.dart';
 import '../../features/home/screens/main_navigation_screen.dart';
@@ -15,23 +20,38 @@ final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: '/login',
     redirect: (context, state) {
-      final isLoggingIn = state.matchedLocation == '/login';
+      final isAuthRoute =
+          state.matchedLocation == '/login' ||
+          state.matchedLocation == '/register' ||
+          state.matchedLocation == '/forgot-password' ||
+          state.matchedLocation == '/reset-password';
 
       if (!authState.isAuthenticated) {
-        return isLoggingIn ? null : '/login';
+        return isAuthRoute ? null : '/login';
       }
 
-      // Si está autenticado e intenta ir a login, lo enviamos al redireccionador de home
-      if (isLoggingIn) {
+      if (isAuthRoute) {
         return '/home';
       }
 
       return null;
     },
     routes: [
+      GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
       GoRoute(
-        path: '/login',
-        builder: (context, state) => const LoginScreen(),
+        path: '/register',
+        builder: (context, state) => const RegisterScreen(),
+      ),
+      GoRoute(
+        path: '/forgot-password',
+        builder: (context, state) => const ForgotPasswordScreen(),
+      ),
+      GoRoute(
+        path: '/reset-password',
+        builder: (context, state) {
+          final email = state.uri.queryParameters['email'] ?? '';
+          return ResetPasswordScreen(email: email);
+        },
       ),
       GoRoute(
         path: '/home',
@@ -46,11 +66,28 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const LinkChildScreen(),
       ),
       GoRoute(
+        path: '/link-child/confirm',
+        builder: (context, state) {
+          final code = state.uri.queryParameters['code'] ?? '';
+          final id = int.tryParse(state.uri.queryParameters['id'] ?? '');
+          return LinkChildConfirmScreen(code: code, id: id);
+        },
+      ),
+      GoRoute(
         path: '/child/:id',
         builder: (context, state) {
           final childId = state.pathParameters['id'] ?? '';
           return ChildDetailScreen(childId: childId);
         },
+        routes: [
+          GoRoute(
+            path: 'qr',
+            builder: (context, state) {
+              final childId = state.pathParameters['id'] ?? '';
+              return ChildQrScreen(childId: childId);
+            },
+          ),
+        ],
       ),
       GoRoute(
         path: '/teacher-home',
@@ -58,6 +95,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/qr',
+        builder: (context, state) => const TeacherQRScreen(),
+      ),
+      GoRoute(
+        path: '/teacher-qr',
         builder: (context, state) => const TeacherQRScreen(),
       ),
       GoRoute(

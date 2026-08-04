@@ -22,9 +22,10 @@ class _HomeRedirectState extends ConsumerState<HomeRedirect> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final authState = ref.read(authProvider);
       if (authState.isAuthenticated) {
-        if (authState.role == 'parent') {
+        final role = authState.user?.role ?? 'parent';
+        if (role == 'parent') {
           context.go('/parent-home');
-        } else if (authState.role == 'teacher') {
+        } else if (role == 'teacher') {
           context.go('/teacher-home');
         }
       } else {
@@ -40,10 +41,6 @@ class _HomeRedirectState extends ConsumerState<HomeRedirect> {
       _performRedirect();
     });
 
-    return const Scaffold(
-      body: Center(
-        child: CircularProgressIndicator(),
-      ),
-    );
+    return const Scaffold(body: Center(child: CircularProgressIndicator()));
   }
 }
