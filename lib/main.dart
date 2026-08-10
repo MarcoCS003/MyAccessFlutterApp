@@ -10,6 +10,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'core/constants/app_constants.dart';
 import 'core/router/router.dart';
 import 'core/theme/theme.dart';
+import 'features/notifications/background/background_sync_register.dart';
 import 'features/notifications/data/notification_local_store.dart';
 import 'features/notifications/data/notification_sync_service.dart';
 import 'features/notifications/models/notification_item.dart';
@@ -98,6 +99,9 @@ Future<void> main() async {
   await Hive.openBox(AppConstants.childrenBox);
   await Hive.openBox(AppConstants.notificationsBox);
   await Hive.openBox(AppConstants.settingsBox);
+
+  // Registrar tarea periódica de sincronización de notificaciones pendientes.
+  await registerBackgroundSync();
 
   // Datos de locale para los DateFormat con 'es' (detalle del alumno).
   await initializeDateFormatting('es');
