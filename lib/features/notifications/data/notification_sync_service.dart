@@ -16,8 +16,10 @@ class NotificationSyncService {
   /// Obtiene las notificaciones pendientes del endpoint de sincronización.
   Future<List<NotificationItem>> fetchPending() async {
     try {
-      final response = await _api.get<List<dynamic>>('/notifications/sync');
-      return response
+      final response = await _api.get<Map<String, dynamic>>('/notifications/sync');
+      final list = response['notifications'];
+      if (list is! List<dynamic>) return [];
+      return list
           .whereType<Map<String, dynamic>>()
           .map(NotificationItem.fromSyncApi)
           .toList();

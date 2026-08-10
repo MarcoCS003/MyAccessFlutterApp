@@ -80,6 +80,7 @@ class NotificationItem {
           _firstString(data, const [
             'student_name',
             'studentName',
+            'person_name',
             'nombre',
             'name',
           ]) ??
