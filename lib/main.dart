@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
@@ -9,12 +11,40 @@ import 'core/constants/app_constants.dart';
 import 'core/router/router.dart';
 import 'core/theme/theme.dart';
 import 'features/notifications/data/notification_local_store.dart';
+import 'features/notifications/data/notification_sync_service.dart';
 import 'features/notifications/models/notification_item.dart';
 import 'features/notifications/providers/notification_provider.dart';
 import 'firebase_options.dart';
+import 'services/api_service.dart';
 import 'services/local_notifications_service.dart';
 
 final _localNotifications = LocalNotificationsService();
+
+/// Envía el ACK de una notificación al backend en modo best-effort.
+///
+/// Extrae [notification_id] de [data], lo convierte a [int] y llama a
+/// [NotificationSyncService.ack]. Cualquier error se loggea y nunca se
+/// propaga. El [syncService] permite inyectar una instancia (útil en el
+/// handler de background); si es null se crea una nueva.
+void _ackBestEffort(
+  Map<String, dynamic> data, {
+  NotificationSyncService? syncService,
+  String tag = '[FCM]',
+}) {
+  final rawId = data['notification_id'];
+  if (rawId == null) return;
+
+  final backendId = int.tryParse(rawId.toString());
+  if (backendId == null) return;
+
+  final service = syncService ?? NotificationSyncService();
+  unawaited(
+    service.ack(backendId).catchError((Object e) {
+      debugPrint('$tag ACK error for $backendId: $e');
+      return Future<void>.value();
+    }),
+  );
+}
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -36,6 +66,18 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     final service = LocalNotificationsService();
     await service.init();
     await service.showAttendance(notification);
+  }
+
+  // ACK best-effort. La instanciación también va dentro de try/catch por si
+  // falla en el isolate de background (p.ej. al crear ApiService).
+  try {
+    _ackBestEffort(
+      message.data,
+      syncService: NotificationSyncService(api: ApiService()),
+      tag: '[FCM][BG]',
+    );
+  } catch (e) {
+    debugPrint('[FCM][BG] ACK setup error: $e');
   }
 }
 
@@ -105,6 +147,7 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
           NotificationItem.fromFcm(message.data),
         );
       }
+      _ackBestEffort(message.data, tag: '[FCM][FG]');
     });
 
     // Usuario tocó una notificación con la app en background: persistir
@@ -112,6 +155,7 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
       debugPrint('[FCM][TAP] data: ${message.data}');
       ref.read(notificationProvider.notifier).addFromFcm(message.data);
+      _ackBestEffort(message.data, tag: '[FCM][TAP]');
       _navigateToNotifications();
     });
 
@@ -120,6 +164,7 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
       if (message != null) {
         debugPrint('[FCM][INITIAL] data: ${message.data}');
         ref.read(notificationProvider.notifier).addFromFcm(message.data);
+        _ackBestEffort(message.data, tag: '[FCM][INITIAL]');
         _navigateToNotifications();
       }
     });
