@@ -22,14 +22,14 @@ Future<void> registerBackgroundSync() async {
 }
 
 Future<void> _registerAndroid() async {
-  await Workmanager().initialize(callbackDispatcher, isInDebugMode: kDebugMode);
+  await Workmanager().initialize(callbackDispatcher);
 
   await Workmanager().registerPeriodicTask(
     _androidUniqueName,
     _androidTaskName,
     frequency: const Duration(hours: 12),
     constraints: Constraints(networkType: NetworkType.connected),
-    existingWorkPolicy: ExistingWorkPolicy.keep,
+    existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
   );
 }
 
