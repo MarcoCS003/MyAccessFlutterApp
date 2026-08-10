@@ -25,49 +25,7 @@ Future<void> notificationSyncTask(String taskId) async {
     debugPrint('$_tag starting taskId=$taskId');
 
     await _initHive();
-
-    final jwt = await _readJwt();
-    if (jwt == null || jwt.isEmpty) {
-      debugPrint('$_tag no JWT found, skipping sync');
-      return;
-    }
-
-    if (_isPeakHour()) {
-      debugPrint('$_tag peak hour, skipping sync');
-      return;
-    }
-
-    final syncService = NotificationSyncService(api: ApiService());
-    final notifications = await syncService.fetchPending();
-    debugPrint('$_tag fetched ${notifications.length} pending notifications');
-
-    final store = NotificationLocalStore.forCurrentUser();
-    for (final notification in notifications) {
-      try {
-        await store.upsert(notification);
-      } catch (e, stackTrace) {
-        debugPrint('$_tag upsert error for ${notification.id}: $e\n$stackTrace');
-      }
-    }
-
-    // ACK best-effort para todas las notificaciones obtenidas que tengan
-    // backendId; se hace después de persistir para no perder datos si el
-    // inserto falla.
-    for (final notification in notifications) {
-      final backendId = notification.backendId;
-      if (backendId == null) continue;
-      unawaited(
-        syncService.ack(backendId).catchError((Object e) {
-          debugPrint('$_tag ACK error for $backendId: $e');
-          return Future<void>.value();
-        }),
-      );
-    }
-
-    await Hive.box(AppConstants.settingsBox).put(
-      'lastNotificationSyncAt',
-      DateTime.now().toIso8601String(),
-    );
+    await _executeSync(checkPeakHour: true);
 
     debugPrint('$_tag completed successfully');
   } catch (e, stackTrace) {
@@ -75,6 +33,78 @@ Future<void> notificationSyncTask(String taskId) async {
   } finally {
     await _finishTask(taskId);
   }
+}
+
+/// Sync de respaldo al abrir la app.
+///
+/// No reinicializa Hive porque en foreground ya está lista. Solo ejecuta el
+/// sync si la última sincronización fue hace más de 12 horas. No aplica el
+/// filtro de horario pico porque el usuario ya está usando la app.
+Future<void> maybeSyncOnAppOpen() async {
+  try {
+    if (!_shouldSyncOnOpen()) {
+      debugPrint('$_tag app open sync skipped, last sync too recent');
+      return;
+    }
+    debugPrint('$_tag app open sync triggered');
+    await _executeSync(checkPeakHour: false);
+  } catch (e, stackTrace) {
+    debugPrint('$_tag app open sync error: $e\n$stackTrace');
+  }
+}
+
+bool _shouldSyncOnOpen() {
+  final lastSyncRaw =
+      Hive.box(AppConstants.settingsBox).get('lastNotificationSyncAt')
+          as String?;
+  if (lastSyncRaw == null) return true;
+  final lastSync = DateTime.tryParse(lastSyncRaw);
+  if (lastSync == null) return true;
+  return DateTime.now().difference(lastSync).inHours >= 12;
+}
+
+Future<void> _executeSync({required bool checkPeakHour}) async {
+  final jwt = await _readJwt();
+  if (jwt == null || jwt.isEmpty) {
+    debugPrint('$_tag no JWT found, skipping sync');
+    return;
+  }
+
+  if (checkPeakHour && _isPeakHour()) {
+    debugPrint('$_tag peak hour, skipping sync');
+    return;
+  }
+
+  final syncService = NotificationSyncService(api: ApiService());
+  final notifications = await syncService.fetchPending();
+  debugPrint('$_tag fetched ${notifications.length} pending notifications');
+
+  final store = NotificationLocalStore.forCurrentUser();
+  for (final notification in notifications) {
+    try {
+      await store.upsert(notification);
+    } catch (e, stackTrace) {
+      debugPrint('$_tag upsert error for ${notification.id}: $e\n$stackTrace');
+    }
+  }
+
+  // ACK best-effort para todas las notificaciones obtenidas que tengan
+  // backendId; se hace después de persistir para no perder datos si el
+  // inserto falla.
+  for (final notification in notifications) {
+    final backendId = notification.backendId;
+    if (backendId == null) continue;
+    unawaited(
+      syncService.ack(backendId).catchError((Object e) {
+        debugPrint('$_tag ACK error for $backendId: $e');
+        return Future<void>.value();
+      }),
+    );
+  }
+
+  await Hive.box(
+    AppConstants.settingsBox,
+  ).put('lastNotificationSyncAt', DateTime.now().toIso8601String());
 }
 
 Future<void> _initHive() async {

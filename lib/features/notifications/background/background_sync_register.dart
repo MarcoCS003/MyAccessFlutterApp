@@ -22,10 +22,7 @@ Future<void> registerBackgroundSync() async {
 }
 
 Future<void> _registerAndroid() async {
-  await Workmanager().initialize(
-    callbackDispatcher,
-    isInDebugMode: kDebugMode,
-  );
+  await Workmanager().initialize(callbackDispatcher, isInDebugMode: kDebugMode);
 
   await Workmanager().registerPeriodicTask(
     _androidUniqueName,

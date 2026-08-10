@@ -95,5 +95,73 @@ void main() {
       expect(item.studentName, 'Alumno');
       expect(item.title, 'Salida registrada');
     });
+
+    test('payload con notification_id y person_name del backend', () {
+      final item = NotificationItem.fromFcm({
+        'notification_id': '456',
+        'type': 'student_attendance',
+        'event': 'check_out',
+        'student_id': '10',
+        'person_name': 'Pedrito Perez',
+        'recorded_at': '2026-08-01T14:32:00-06:00',
+      });
+
+      expect(item.backendId, 456);
+      expect(item.studentName, 'Pedrito Perez');
+      expect(item.event, 'check_out');
+      expect(item.studentId, 10);
+    });
+  });
+
+  group('NotificationItem.fromSyncApi', () {
+    test('mapea respuesta del endpoint sync', () {
+      final item = NotificationItem.fromSyncApi({
+        'id': 789,
+        'type': 'attendance',
+        'event': 'check_in',
+        'student_id': 5,
+        'student_name': 'María López',
+        'timestamp': '2026-08-01T07:30:00-06:00',
+      });
+
+      expect(item.backendId, 789);
+      expect(item.type, 'attendance');
+      expect(item.event, 'check_in');
+      expect(item.studentId, 5);
+      expect(item.studentName, 'María López');
+      expect(
+        item.timestamp,
+        DateTime.parse('2026-08-01T07:30:00-06:00').toLocal(),
+      );
+      expect(item.id, '5_check_in_${item.timestamp.toIso8601String()}');
+    });
+
+    test('mapea teacher_id cuando no hay student_id', () {
+      final item = NotificationItem.fromSyncApi({
+        'id': 100,
+        'type': 'teacher_attendance',
+        'event': 'check_out',
+        'teacher_id': '20',
+        'student_name': 'Profesor García',
+        'timestamp': '2026-08-01T15:00:00-06:00',
+      });
+
+      expect(item.backendId, 100);
+      expect(item.studentId, 20);
+      expect(item.type, 'teacher_attendance');
+    });
+
+    test('student_id como string se convierte a int', () {
+      final item = NotificationItem.fromSyncApi({
+        'id': 101,
+        'type': 'attendance',
+        'event': 'check_in',
+        'student_id': '7',
+        'student_name': 'Luis Hernández',
+        'timestamp': '2026-08-01T08:00:00-06:00',
+      });
+
+      expect(item.studentId, 7);
+    });
   });
 }

@@ -11,6 +11,7 @@ import 'core/constants/app_constants.dart';
 import 'core/router/router.dart';
 import 'core/theme/theme.dart';
 import 'features/notifications/background/background_sync_register.dart';
+import 'features/notifications/background/notification_sync_task.dart';
 import 'features/notifications/data/notification_local_store.dart';
 import 'features/notifications/data/notification_sync_service.dart';
 import 'features/notifications/models/notification_item.dart';
@@ -102,6 +103,11 @@ Future<void> main() async {
 
   // Registrar tarea periódica de sincronización de notificaciones pendientes.
   await registerBackgroundSync();
+
+  // Sync de respaldo al abrir la app si la última sincronización fue hace
+  // más de 12 horas. Es especialmente útil en iOS donde background_fetch no
+  // garantiza ejecución periódica.
+  unawaited(maybeSyncOnAppOpen());
 
   // Datos de locale para los DateFormat con 'es' (detalle del alumno).
   await initializeDateFormatting('es');

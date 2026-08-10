@@ -73,7 +73,9 @@ class NotificationItem {
       // genera los mismos ids de siempre y la deduplicación por id contra
       // lo ya guardado en Hive sigue funcionando.
       id: '${studentIdRaw}_${eventRaw ?? 'check_in'}_$timestampRaw',
-      backendId: int.tryParse(_firstString(data, const ['notification_id']) ?? ''),
+      backendId: int.tryParse(
+        _firstString(data, const ['notification_id']) ?? '',
+      ),
       type: data['type']?.toString() ?? 'attendance',
       event: _normalizeEvent(eventRaw),
       studentName:
@@ -101,7 +103,8 @@ class NotificationItem {
     final studentIdRaw =
         json['student_id']?.toString() ?? json['teacher_id']?.toString() ?? '0';
     final studentId = int.tryParse(studentIdRaw) ?? 0;
-    final timestamp = DateTime.tryParse(json['timestamp']?.toString() ?? '')?.toLocal() ??
+    final timestamp =
+        DateTime.tryParse(json['timestamp']?.toString() ?? '')?.toLocal() ??
         DateTime.now();
 
     return NotificationItem(
