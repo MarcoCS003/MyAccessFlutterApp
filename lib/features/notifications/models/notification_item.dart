@@ -1,5 +1,6 @@
 class NotificationItem {
   final String id;
+  final int? backendId;
   final String type;
   final String event;
   final String studentName;
@@ -10,6 +11,7 @@ class NotificationItem {
 
   const NotificationItem({
     required this.id,
+    this.backendId,
     required this.type,
     required this.event,
     required this.studentName,
@@ -21,6 +23,7 @@ class NotificationItem {
 
   NotificationItem copyWith({
     String? id,
+    int? backendId,
     String? type,
     String? event,
     String? studentName,
@@ -31,6 +34,7 @@ class NotificationItem {
   }) {
     return NotificationItem(
       id: id ?? this.id,
+      backendId: backendId ?? this.backendId,
       type: type ?? this.type,
       event: event ?? this.event,
       studentName: studentName ?? this.studentName,
@@ -69,6 +73,7 @@ class NotificationItem {
       // genera los mismos ids de siempre y la deduplicación por id contra
       // lo ya guardado en Hive sigue funcionando.
       id: '${studentIdRaw}_${eventRaw ?? 'check_in'}_$timestampRaw',
+      backendId: int.tryParse(_firstString(data, const ['notification_id']) ?? ''),
       type: data['type']?.toString() ?? 'attendance',
       event: _normalizeEvent(eventRaw),
       studentName:
@@ -83,6 +88,29 @@ class NotificationItem {
       timestamp:
           DateTime.tryParse(timestampRaw ?? '')?.toLocal() ?? DateTime.now(),
       location: _firstString(data, const ['location', 'ubicacion']),
+    );
+  }
+
+  /// Mapea la respuesta del endpoint `GET /api/notifications/sync`.
+  factory NotificationItem.fromSyncApi(Map<String, dynamic> json) {
+    final backendId = json['id'] as int?;
+    final type = json['type']?.toString() ?? 'attendance';
+    final event = json['event']?.toString() ?? 'check_in';
+    final studentName = json['student_name']?.toString() ?? 'Alumno';
+    final studentIdRaw =
+        json['student_id']?.toString() ?? json['teacher_id']?.toString() ?? '0';
+    final studentId = int.tryParse(studentIdRaw) ?? 0;
+    final timestamp = DateTime.tryParse(json['timestamp']?.toString() ?? '')?.toLocal() ??
+        DateTime.now();
+
+    return NotificationItem(
+      id: '${studentId}_${event}_${timestamp.toIso8601String()}',
+      backendId: backendId,
+      type: type,
+      event: event,
+      studentName: studentName,
+      studentId: studentId,
+      timestamp: timestamp,
     );
   }
 
@@ -110,6 +138,7 @@ class NotificationItem {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
+      'backendId': backendId,
       'type': type,
       'event': event,
       'studentName': studentName,
@@ -123,6 +152,7 @@ class NotificationItem {
   factory NotificationItem.fromJson(Map<String, dynamic> json) {
     return NotificationItem(
       id: json['id'] as String,
+      backendId: json['backendId'] as int?,
       type: json['type'] as String,
       event: json['event'] as String,
       studentName: json['studentName'] as String,
