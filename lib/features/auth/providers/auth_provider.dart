@@ -60,7 +60,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       state = AuthState(status: AuthStatus.authenticated, user: user);
     } on Failure catch (e) {
-      state = AuthState(status: AuthStatus.error, errorMessage: e.message);
+      state = _errorState(e);
     } catch (e, st) {
       debugPrint('signInWithEmailPassword falló: $e\n$st');
       state = AuthState(
@@ -108,7 +108,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       state = AuthState(status: AuthStatus.authenticated, user: user);
     } on Failure catch (e) {
-      state = AuthState(status: AuthStatus.error, errorMessage: e.message);
+      state = _errorState(e);
     } catch (e, st) {
       debugPrint('signUp falló: $e\n$st');
       state = AuthState(
@@ -116,6 +116,25 @@ class AuthNotifier extends StateNotifier<AuthState> {
         errorMessage: 'Error al registrar. Verifica tus datos.',
       );
     }
+  }
+
+  AuthState _errorState(Failure failure) {
+    if (failure is ServerFailure) {
+      // Log temporal para depurar el 422 de producción en registro/login.
+      debugPrint(
+        'Auth error ${failure.statusCode}: ${failure.message} '
+        '| fieldErrors: ${failure.fieldErrors}',
+      );
+      final fieldErrors = failure.fieldErrors?.map(
+        (key, value) => MapEntry(key, value.first),
+      );
+      return AuthState(
+        status: AuthStatus.error,
+        errorMessage: failure.message,
+        fieldErrors: fieldErrors ?? const {},
+      );
+    }
+    return AuthState(status: AuthStatus.error, errorMessage: failure.message);
   }
 
   Future<void> signOut() async {

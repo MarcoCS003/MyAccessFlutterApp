@@ -154,9 +154,13 @@ class ApiService {
     if (data is Map<String, dynamic>) {
       final errors = data['errors'];
       if (errors is Map<String, dynamic>) {
-        final firstList = errors.values.whereType<List>().firstOrNull;
-        if (firstList != null && firstList.isNotEmpty) {
-          return firstList.first.toString();
+        final messages = errors.values
+            .whereType<List>()
+            .expand((list) => list)
+            .map((e) => e.toString())
+            .toList();
+        if (messages.isNotEmpty) {
+          return messages.join('\n');
         }
       }
       if (data['message'] is String) {

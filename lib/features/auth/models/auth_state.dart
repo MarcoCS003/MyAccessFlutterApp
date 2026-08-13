@@ -6,18 +6,26 @@ class AuthState {
   final AuthStatus status;
   final User? user;
   final String? errorMessage;
+  final Map<String, String> fieldErrors;
 
   const AuthState({
     this.status = AuthStatus.initial,
     this.user,
     this.errorMessage,
+    this.fieldErrors = const {},
   });
 
-  AuthState copyWith({AuthStatus? status, User? user, String? errorMessage}) {
+  AuthState copyWith({
+    AuthStatus? status,
+    User? user,
+    String? errorMessage,
+    Map<String, String>? fieldErrors,
+  }) {
     return AuthState(
       status: status ?? this.status,
       user: user ?? this.user,
-      errorMessage: errorMessage ?? this.errorMessage,
+      errorMessage: errorMessage,
+      fieldErrors: fieldErrors ?? const {},
     );
   }
 

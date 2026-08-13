@@ -32,6 +32,28 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     super.dispose();
   }
 
+  String? _validatePassword(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Ingresa una contraseña';
+    }
+    if (value.length < 12) {
+      return 'Mínimo 12 caracteres';
+    }
+    if (!RegExp(r'[A-Z]').hasMatch(value)) {
+      return 'Debe incluir al menos una mayúscula';
+    }
+    if (!RegExp(r'[a-z]').hasMatch(value)) {
+      return 'Debe incluir al menos una minúscula';
+    }
+    if (!RegExp(r'[0-9]').hasMatch(value)) {
+      return 'Debe incluir al menos un número';
+    }
+    if (!RegExp(r'[^A-Za-z0-9]').hasMatch(value)) {
+      return 'Debe incluir al menos un símbolo';
+    }
+    return null;
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     final email = _emailController.text.trim();
@@ -56,6 +78,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
     final headerHeight = size.height * 0.35;
     final cardMinHeight = (size.height * 0.65) + 24;
+
+    final nameError = authState.fieldErrors['name'];
+    final emailError = authState.fieldErrors['email'];
+    final passwordError = authState.fieldErrors['password'];
 
     return Scaffold(
       backgroundColor: AppTheme.bgLightColor,
@@ -186,6 +212,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                     prefixIcon: const Icon(
                                       Icons.person_outline,
                                     ),
+                                    errorText: nameError,
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(12),
                                     ),
@@ -209,6 +236,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                     prefixIcon: const Icon(
                                       Icons.email_outlined,
                                     ),
+                                    errorText: emailError,
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(12),
                                     ),
@@ -242,6 +270,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                   enabled: !authState.isLoading,
                                   decoration: InputDecoration(
                                     labelText: 'Contraseña',
+                                    helperText:
+                                        'Mínimo 12 caracteres, con mayúsculas, minúsculas, números y símbolos',
+                                    helperMaxLines: 2,
                                     prefixIcon: const Icon(Icons.lock_outline),
                                     suffixIcon: IconButton(
                                       icon: Icon(
@@ -255,19 +286,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                         });
                                       },
                                     ),
+                                    errorText: passwordError,
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(12),
                                     ),
                                   ),
-                                  validator: (value) {
-                                    if (value == null || value.isEmpty) {
-                                      return 'Ingresa una contraseña';
-                                    }
-                                    if (value.length < 8) {
-                                      return 'Mínimo 8 caracteres';
-                                    }
-                                    return null;
-                                  },
+                                  validator: _validatePassword,
                                 ),
                                 const SizedBox(height: 16),
                                 TextFormField(
