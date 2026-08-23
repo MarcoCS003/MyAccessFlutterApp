@@ -9,7 +9,12 @@ class ApiService {
   final Dio _dio;
   final FlutterSecureStorage _secureStorage;
 
-  ApiService({Dio? dio, FlutterSecureStorage? secureStorage})
+  /// Token explícito (opcional). Si se proporciona, el interceptor lo usa
+  /// directamente en vez de leer el JWT de la sesión activa del storage —
+  /// útil para operaciones con otra cuenta guardada (sync multi-sesión).
+  final String? authToken;
+
+  ApiService({Dio? dio, FlutterSecureStorage? secureStorage, this.authToken})
     : _dio = dio ?? _createDio(),
       _secureStorage = secureStorage ?? const FlutterSecureStorage() {
     // Solo agregamos el interceptor al Dio interno. Si un Dio es inyectado
@@ -19,9 +24,9 @@ class ApiService {
         InterceptorsWrapper(
           onRequest: (options, handler) async {
             if (options.extra['requiresAuth'] != false) {
-              final token = await _secureStorage.read(
-                key: AppConstants.jwtTokenKey,
-              );
+              final token =
+                  authToken ??
+                  await _secureStorage.read(key: AppConstants.jwtTokenKey);
               if (token != null && token.isNotEmpty) {
                 options.headers['Authorization'] = 'Bearer $token';
               }

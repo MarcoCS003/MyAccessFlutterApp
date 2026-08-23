@@ -6,7 +6,9 @@ import 'package:hive_flutter/hive_flutter.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/errors/failures.dart';
+import '../../../core/utils/user_key.dart';
 import '../../../services/api_service.dart';
+import '../data/session_store.dart';
 import '../models/auth_state.dart';
 import '../models/user.dart';
 
@@ -15,10 +17,13 @@ class AuthNotifier extends StateNotifier<AuthState> {
     FirebaseMessaging? firebaseMessaging,
     FlutterSecureStorage? secureStorage,
     ApiService? apiService,
+    SessionStore? sessionStore,
     bool skipInitialCheck = false,
   }) : _firebaseMessaging = firebaseMessaging ?? FirebaseMessaging.instance,
        _secureStorage = secureStorage ?? const FlutterSecureStorage(),
        _apiService = apiService ?? ApiService(),
+       _sessionStore =
+           sessionStore ?? SessionStore(secureStorage: secureStorage),
        super(const AuthState()) {
     if (!skipInitialCheck) {
       checkAuthStatus();
@@ -28,6 +33,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   final FirebaseMessaging _firebaseMessaging;
   final FlutterSecureStorage _secureStorage;
   final ApiService _apiService;
+  final SessionStore _sessionStore;
 
   Future<void> signInWithEmailPassword(String email, String password) async {
     try {
@@ -137,23 +143,125 @@ class AuthNotifier extends StateNotifier<AuthState> {
     return AuthState(status: AuthStatus.error, errorMessage: failure.message);
   }
 
+  /// Cierra la sesión ACTIVA: elimina solo esa cuenta del dispositivo.
+  ///
+  /// - Si queda otra cuenta guardada, cambia automáticamente a ella
+  ///   (auto-switch) y rota el token FCM: `deleteToken()` invalida el token
+  ///   viejo (el backend limpia la cuenta eliminada al recibir UNREGISTERED)
+  ///   y se registra uno nuevo para la cuenta restante.
+  /// - Si era la última cuenta, limpia la sesión activa y borra el token
+  ///   FCM para dejar de recibir pushes de esa cuenta en este dispositivo.
+  ///
+  /// Los datos namespacedos por userKey (notificaciones, hijos cacheados)
+  /// se conservan por si la cuenta vuelve a iniciar sesión.
   Future<void> signOut() async {
     try {
-      await _secureStorage.delete(key: AppConstants.jwtTokenKey);
-      // La BD local (hijos, notificaciones, settings) se conserva al cerrar
-      // sesión: los datos de cada cuenta están namespacedos por userKey
-      // (email) en Hive, así que nada se mezcla al alternar cuentas en el
-      // mismo dispositivo. La sesión termina al borrar el JWT;
-      // checkAuthStatus exige token + usuario, así que sin token queda no
-      // autenticado. auth_box['user'] se conserva como última cuenta
-      // conocida (la usan los handlers FCM para namespacer escrituras).
-      state = const AuthState(status: AuthStatus.unauthenticated);
+      final user = state.user;
+      if (user == null) {
+        state = const AuthState(status: AuthStatus.unauthenticated);
+        return;
+      }
+      await _removeSessionInternal(userStorageKey(user.email));
+
+      final remaining = _sessionStore.listSessions();
+      if (remaining.isNotEmpty) {
+        await _sessionStore.setActive(remaining.first.userKey);
+        state = AuthState(
+          status: AuthStatus.authenticated,
+          user: remaining.first.user,
+        );
+        await _registerFcmToken();
+      } else {
+        state = const AuthState(status: AuthStatus.unauthenticated);
+      }
     } catch (e) {
       state = AuthState(
         status: AuthStatus.error,
         errorMessage: 'Error al cerrar sesión: ${e.toString()}',
       );
     }
+  }
+
+  /// Elimina una cuenta guardada del dispositivo. Si es la activa, equivale
+  /// a [signOut] (con auto-switch a la cuenta restante, si la hay).
+  Future<void> removeAccount(String userKey) async {
+    if (state.user != null && userStorageKey(state.user!.email) == userKey) {
+      return signOut();
+    }
+    await _removeSessionInternal(userKey);
+    // Fuerza reconstrucción de savedSessionsProvider.
+    state = state.copyWith();
+  }
+
+  /// Elimina la sesión y rota el token FCM según las cuentas restantes.
+  Future<void> _removeSessionInternal(String userKey) async {
+    await _sessionStore.removeSession(userKey);
+    if (_sessionStore.listSessions().isNotEmpty) {
+      // Quedan cuentas: el token viejo (compartido con la cuenta eliminada)
+      // se invalida y se genera uno nuevo; el caller lo re-registra con la
+      // cuenta activa.
+      await _deleteFcmTokenSafely();
+    } else {
+      await _sessionStore.clearActive();
+      await _deleteFcmTokenSafely();
+    }
+  }
+
+  /// Cambia la sesión activa a otra cuenta guardada, validando que su JWT
+  /// siga vigente con GET /user. Devuelve true si el cambio se aplicó.
+  ///
+  /// - 401: el token expiró → se elimina la sesión y se restaura la cuenta
+  ///   anterior (o se queda sin sesión si no había).
+  /// - Error de red/servidor distinto: cambio optimista (soporte offline,
+  ///   los datos namespacedos de la cuenta están en caché local).
+  Future<bool> switchAccount(String userKey) async {
+    final previousUser = state.user;
+    final previousKey = previousUser != null
+        ? userStorageKey(previousUser.email)
+        : null;
+    if (previousKey == userKey) return true;
+
+    final activated = await _sessionStore.setActive(userKey);
+    if (!activated) {
+      state = state.copyWith(
+        errorMessage: 'La cuenta ya no está disponible en este dispositivo',
+      );
+      return false;
+    }
+
+    final session = _sessionStore.listSessions().firstWhere(
+      (s) => s.userKey == userKey,
+    );
+
+    try {
+      await _apiService.get('/user');
+    } on ServerFailure catch (e) {
+      if (e.statusCode == 401) {
+        await _sessionStore.removeSession(userKey);
+        if (previousKey != null) {
+          await _sessionStore.setActive(previousKey);
+          state = AuthState(
+            status: AuthStatus.authenticated,
+            user: previousUser,
+            errorMessage:
+                'La sesión de esa cuenta expiró. Vuelve a iniciar sesión.',
+          );
+        } else {
+          await _sessionStore.clearActive();
+          state = const AuthState(
+            status: AuthStatus.unauthenticated,
+            errorMessage:
+                'La sesión de esa cuenta expiró. Vuelve a iniciar sesión.',
+          );
+        }
+        return false;
+      }
+    } on Failure catch (_) {
+      // Sin red u otro fallo no-auth: se aplica el cambio con datos en caché.
+    }
+
+    state = AuthState(status: AuthStatus.authenticated, user: session.user);
+    return true;
   }
 
   Future<void> checkAuthStatus() async {
@@ -166,6 +274,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
         final user = User.fromJson(
           userData.map((key, value) => MapEntry(key.toString(), value)),
         );
+        // Migración: sesiones anteriores a multi-sesión no tienen entrada en
+        // auth_box['sessions'] ni JWT por cuenta; se registran al arrancar.
+        final userKey = userStorageKey(user.email);
+        if (!_sessionStore.listSessions().any((s) => s.userKey == userKey)) {
+          await _sessionStore.saveSession(user: user, jwt: token);
+        }
         state = AuthState(status: AuthStatus.authenticated, user: user);
       } else {
         state = const AuthState(status: AuthStatus.unauthenticated);
@@ -183,6 +297,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
     await _secureStorage.write(key: AppConstants.jwtTokenKey, value: jwtToken);
     final box = Hive.box(AppConstants.authBox);
     await box.put('user', user.toJson());
+    // Multi-sesión: agrega/actualiza la cuenta sin tocar las demás.
+    await _sessionStore.saveSession(user: user, jwt: jwtToken);
   }
 
   Future<void> _registerFcmToken() async {
@@ -213,6 +329,17 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
+  /// Invalida el token FCM del dispositivo (best-effort). El backend limpia
+  /// `users.fcm_token` de las cuentas que lo tuvieran al recibir
+  /// UNREGISTERED en el siguiente envío.
+  Future<void> _deleteFcmTokenSafely() async {
+    try {
+      await _firebaseMessaging.deleteToken();
+    } catch (e) {
+      debugPrint('No se pudo eliminar el FCM token: $e');
+    }
+  }
+
   void _listenToTokenRefresh() {
     _firebaseMessaging.onTokenRefresh.listen((newToken) async {
       try {
@@ -230,4 +357,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
 final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
   return AuthNotifier();
+});
+
+/// Cuentas guardadas en el dispositivo (multi-sesión). Se relee cada vez
+/// que cambia el estado de auth (login, logout, switch, removeAccount).
+final savedSessionsProvider = Provider<List<SavedSession>>((ref) {
+  ref.watch(authProvider);
+  return SessionStore().listSessions();
 });

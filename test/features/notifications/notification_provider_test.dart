@@ -149,6 +149,31 @@ void main() {
     });
 
     test(
+      'reloadFromLocal relee el box desde disco tras una escritura externa',
+      () async {
+        // El notifier ya existe (cargó 0 items); una escritura posterior
+        // directa al box (como la del isolate de background) debe reflejarse
+        // al recargar.
+        final notifier = NotificationNotifier(userKey: userKey);
+        expect(notifier.state, isEmpty);
+
+        await NotificationLocalStore(userKey: userKey).upsert(
+          NotificationItem.fromFcm({
+            'student_id': '1',
+            'student_name': 'Juan Pérez',
+            'event': 'check_in',
+            'timestamp': '2026-06-29T08:00:00.000Z',
+          }),
+        );
+
+        await notifier.reloadFromLocal();
+
+        expect(notifier.state.length, 1);
+        expect(notifier.state.first.studentName, 'Juan Pérez');
+      },
+    );
+
+    test(
       'addFromFcm no pierde items escritos por el handler de background',
       () async {
         final notifier = NotificationNotifier(userKey: userKey);

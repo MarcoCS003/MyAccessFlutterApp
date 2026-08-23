@@ -10,6 +10,9 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'core/constants/app_constants.dart';
 import 'core/router/router.dart';
 import 'core/theme/theme.dart';
+import 'core/utils/user_key.dart';
+import 'features/auth/data/session_store.dart';
+import 'features/auth/providers/auth_provider.dart';
 import 'features/notifications/background/background_sync_register.dart';
 import 'features/notifications/background/notification_sync_task.dart';
 import 'features/notifications/data/notification_local_store.dart';
@@ -48,39 +51,73 @@ void _ackBestEffort(
   );
 }
 
+/// ACK best-effort autenticado con el JWT de la cuenta DUEÑA de la
+/// notificación (no necesariamente la sesión activa). Si esa cuenta no
+/// tiene JWT guardado, se omite el ACK.
+Future<void> _ackForOwner(
+  Map<String, dynamic> data,
+  String ownerKey, {
+  String tag = '[FCM]',
+}) async {
+  try {
+    final jwt = await SessionStore().getJwt(ownerKey);
+    if (jwt == null || jwt.isEmpty) return;
+    _ackBestEffort(
+      data,
+      syncService: NotificationSyncService(api: ApiService(authToken: jwt)),
+      tag: tag,
+    );
+  } catch (e) {
+    debugPrint('$tag ACK setup error: $e');
+  }
+}
+
+/// Resuelve la cuenta dueña de la notificación. null = descartar (el
+/// usuario destinatario no tiene sesión en este dispositivo).
+String? _routeNotification(NotificationItem notification) =>
+    resolveUserKeyForNotification(
+      recipientUserId: notification.recipientUserId,
+      type: notification.type,
+      studentId: notification.studentId,
+    );
+
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   await Hive.initFlutter();
   await Hive.openBox(AppConstants.authBox);
+  await Hive.openBox(AppConstants.childrenBox);
   await Hive.openBox(AppConstants.notificationsBox);
 
   // Persistir en la BD local con deduplicación; solo si es nuevo se muestra
   // la notificación del sistema (mensajes data-only no generan UI en bg).
-  // Se escribe bajo la clave del usuario de la sesión guardada en auth_box;
-  // sin sesión cae en el inbox anónimo fijo que la UI no lee.
+  // Multi-sesión: se enruta al inbox de la cuenta a la que pertenece el
+  // mensaje (por user_id; payloads viejos usan el ruteo legado). Si el
+  // usuario destinatario no tiene sesión en el dispositivo, se descarta.
   debugPrint('[FCM][BG] data: ${message.data}');
   final notification = NotificationItem.fromFcm(message.data);
-  final inserted = await NotificationLocalStore.forCurrentUser().upsert(
-    notification,
-  );
+  final targetKey = _routeNotification(notification);
+  if (targetKey == null) {
+    final known = SessionStore().listSessions()
+        .map((s) => '${s.userKey}#${s.user.id}')
+        .toList();
+    debugPrint(
+      '[FCM][BG] descartada: user_id ${notification.recipientUserId} '
+      'sin sesión en el dispositivo (sesiones: $known)',
+    );
+    return;
+  }
+  final inserted = await NotificationLocalStore(
+    userKey: targetKey,
+  ).upsert(notification);
   if (inserted) {
     final service = LocalNotificationsService();
     await service.init();
     await service.showAttendance(notification);
   }
 
-  // ACK best-effort. La instanciación también va dentro de try/catch por si
-  // falla en el isolate de background (p.ej. al crear ApiService).
-  try {
-    _ackBestEffort(
-      message.data,
-      syncService: NotificationSyncService(api: ApiService()),
-      tag: '[FCM][BG]',
-    );
-  } catch (e) {
-    debugPrint('[FCM][BG] ACK setup error: $e');
-  }
+  // ACK best-effort con el JWT de la cuenta dueña.
+  await _ackForOwner(message.data, targetKey, tag: '[FCM][BG]');
 }
 
 Future<void> main() async {
@@ -140,41 +177,86 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     // Al volver a primer plano, recargar lo que el handler de background
-    // escribió en Hive mientras la app estaba en segundo plano.
+    // escribió en Hive mientras la app estaba en segundo plano. El handler
+    // corre en otro isolate con su propia instancia de Hive: reloadFromLocal
+    // reabre el box para releer desde disco.
     if (state == AppLifecycleState.resumed) {
       ref.read(notificationProvider.notifier).reloadFromLocal();
     }
+  }
+
+  /// Persiste la notificación en el inbox de la cuenta a la que pertenece
+  /// (multi-sesión). Si es de la sesión activa pasa por el provider para
+  /// actualizar la UI en caliente; si es de otra cuenta guardada, escribe
+  /// directo en Hive sin tocar el estado en memoria.
+  ///
+  /// Devuelve true si era nueva; false si era duplicada; null si se
+  /// descartó (el usuario destinatario no tiene sesión en el dispositivo).
+  Future<bool?> _persistRouted(NotificationItem notification) async {
+    final targetKey = _routeNotification(notification);
+    if (targetKey == null) {
+      final known = SessionStore().listSessions()
+          .map((s) => '${s.userKey}#${s.user.id}')
+          .toList();
+      debugPrint(
+        '[FCM] descartada: user_id ${notification.recipientUserId} '
+        'sin sesión en el dispositivo (sesiones: $known)',
+      );
+      return null;
+    }
+    final activeEmail = ref.read(authProvider).user?.email;
+    if (activeEmail != null && userStorageKey(activeEmail) == targetKey) {
+      return ref
+          .read(notificationProvider.notifier)
+          .addNotification(notification);
+    }
+    return NotificationLocalStore(userKey: targetKey).upsert(notification);
   }
 
   void _setupFcmListeners() {
     // Foreground: persistir en BD local y mostrar notificación del sistema.
     FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
       debugPrint('[FCM][FG] data: ${message.data}');
-      final notifier = ref.read(notificationProvider.notifier);
-      final isNew = await notifier.addFromFcm(message.data);
+      final notification = NotificationItem.fromFcm(message.data);
+      final isNew = await _persistRouted(notification);
+      // Descartada (usuario sin sesión aquí): sin bandeja ni ACK.
+      if (isNew == null) return;
       if (isNew) {
-        await _localNotifications.showAttendance(
-          NotificationItem.fromFcm(message.data),
-        );
+        await _localNotifications.showAttendance(notification);
       }
-      _ackBestEffort(message.data, tag: '[FCM][FG]');
+      final ownerKey = _routeNotification(notification);
+      if (ownerKey != null) {
+        await _ackForOwner(message.data, ownerKey, tag: '[FCM][FG]');
+      }
     });
 
     // Usuario tocó una notificación con la app en background: persistir
     // (la deduplicación evita duplicar si el handler ya la guardó) y navegar.
-    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) async {
       debugPrint('[FCM][TAP] data: ${message.data}');
-      ref.read(notificationProvider.notifier).addFromFcm(message.data);
-      _ackBestEffort(message.data, tag: '[FCM][TAP]');
+      final notification = NotificationItem.fromFcm(message.data);
+      final isNew = await _persistRouted(notification);
+      if (isNew != null) {
+        final ownerKey = _routeNotification(notification);
+        if (ownerKey != null) {
+          await _ackForOwner(message.data, ownerKey, tag: '[FCM][TAP]');
+        }
+      }
       _navigateToNotifications();
     });
 
     // App abierta desde terminada por una notificación.
-    FirebaseMessaging.instance.getInitialMessage().then((message) {
+    FirebaseMessaging.instance.getInitialMessage().then((message) async {
       if (message != null) {
         debugPrint('[FCM][INITIAL] data: ${message.data}');
-        ref.read(notificationProvider.notifier).addFromFcm(message.data);
-        _ackBestEffort(message.data, tag: '[FCM][INITIAL]');
+        final notification = NotificationItem.fromFcm(message.data);
+        final isNew = await _persistRouted(notification);
+        if (isNew != null) {
+          final ownerKey = _routeNotification(notification);
+          if (ownerKey != null) {
+            await _ackForOwner(message.data, ownerKey, tag: '[FCM][INITIAL]');
+          }
+        }
         _navigateToNotifications();
       }
     });

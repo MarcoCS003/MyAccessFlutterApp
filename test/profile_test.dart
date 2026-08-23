@@ -38,6 +38,11 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Configuración'), findsOneWidget);
     expect(find.text('Juan Perez'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Cerrar sesión'),
+      200,
+      scrollable: find.byType(Scrollable).last,
+    );
     expect(find.text('Cerrar sesión'), findsOneWidget);
   });
 }

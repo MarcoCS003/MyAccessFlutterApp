@@ -1,6 +1,11 @@
 class NotificationItem {
   final String id;
   final int? backendId;
+
+  /// Id del usuario destinatario (`user_id` en el payload FCM / sync).
+  /// Permite enrutar la notificación al inbox de esa cuenta de forma
+  /// exacta; null en payloads anteriores a este cambio (ruteo legado).
+  final int? recipientUserId;
   final String type;
   final String event;
   final String studentName;
@@ -12,6 +17,7 @@ class NotificationItem {
   const NotificationItem({
     required this.id,
     this.backendId,
+    this.recipientUserId,
     required this.type,
     required this.event,
     required this.studentName,
@@ -24,6 +30,7 @@ class NotificationItem {
   NotificationItem copyWith({
     String? id,
     int? backendId,
+    int? recipientUserId,
     String? type,
     String? event,
     String? studentName,
@@ -35,6 +42,7 @@ class NotificationItem {
     return NotificationItem(
       id: id ?? this.id,
       backendId: backendId ?? this.backendId,
+      recipientUserId: recipientUserId ?? this.recipientUserId,
       type: type ?? this.type,
       event: event ?? this.event,
       studentName: studentName ?? this.studentName,
@@ -66,6 +74,7 @@ class NotificationItem {
       'student_id',
       'studentId',
       'alumno_id',
+      'teacher_id',
     ]);
 
     return NotificationItem(
@@ -75,6 +84,9 @@ class NotificationItem {
       id: '${studentIdRaw}_${eventRaw ?? 'check_in'}_$timestampRaw',
       backendId: int.tryParse(
         _firstString(data, const ['notification_id']) ?? '',
+      ),
+      recipientUserId: int.tryParse(
+        _firstString(data, const ['user_id', 'userId']) ?? '',
       ),
       type: data['type']?.toString() ?? 'attendance',
       event: _normalizeEvent(eventRaw),
@@ -110,6 +122,7 @@ class NotificationItem {
     return NotificationItem(
       id: '${studentId}_${event}_${timestamp.toIso8601String()}',
       backendId: backendId,
+      recipientUserId: int.tryParse(json['user_id']?.toString() ?? ''),
       type: type,
       event: event,
       studentName: studentName,
@@ -143,6 +156,7 @@ class NotificationItem {
     return {
       'id': id,
       'backendId': backendId,
+      'recipientUserId': recipientUserId,
       'type': type,
       'event': event,
       'studentName': studentName,
@@ -157,6 +171,7 @@ class NotificationItem {
     return NotificationItem(
       id: json['id'] as String,
       backendId: json['backendId'] as int?,
+      recipientUserId: json['recipientUserId'] as int?,
       type: json['type'] as String,
       event: json['event'] as String,
       studentName: json['studentName'] as String,

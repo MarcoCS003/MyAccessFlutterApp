@@ -31,7 +31,12 @@ final routerProvider = Provider<GoRouter>((ref) {
       }
 
       if (isAuthRoute) {
-        return '/home';
+        // Alta de cuenta adicional desde Perfil: un usuario autenticado
+        // puede entrar a /login solo en modo addAccount.
+        final isAddAccount =
+            state.matchedLocation == '/login' &&
+            state.uri.queryParameters['addAccount'] == '1';
+        return isAddAccount ? null : '/home';
       }
 
       return null;

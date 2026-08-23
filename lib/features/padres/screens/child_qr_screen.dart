@@ -214,25 +214,6 @@ class _ChildQrContent extends StatelessWidget {
                       ),
                       textAlign: TextAlign.center,
                     ),
-                    const SizedBox(height: 16),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppTheme.lightGoldColor,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        'Ref: $qrPayload',
-                        style: GoogleFonts.inter(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.accentGoldColor,
-                        ),
-                      ),
-                    ),
                   ],
                 ),
               ),

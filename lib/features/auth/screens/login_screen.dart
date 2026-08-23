@@ -34,6 +34,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           _emailController.text.trim(),
           _passwordController.text,
         );
+    if (!mounted) return;
+    // Alta de cuenta adicional desde Perfil: el redirect del router no saca
+    // de /login en ese modo, así que navegamos explícitamente al completar.
+    final isAddAccount =
+        GoRouterState.of(context).uri.queryParameters['addAccount'] == '1';
+    if (isAddAccount && ref.read(authProvider).isAuthenticated) {
+      context.go('/home');
+    }
   }
 
   void _goToRegister() => context.go('/register');

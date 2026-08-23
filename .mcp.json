@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "outline-ijl": {
+      "url": "https://server001.taild8105f.ts.net/mcp",
+      "bearerTokenEnvVar": "OUTLINE_IJL_TOKEN"
+    }
+  }
+}

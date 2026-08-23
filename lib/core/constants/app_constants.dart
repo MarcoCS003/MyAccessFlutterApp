@@ -16,4 +16,13 @@ class AppConstants {
 
   // SecureStorage keys
   static const String jwtTokenKey = 'jwt_token';
+
+  /// Prefijo para el JWT por cuenta en SecureStorage (multi-sesión):
+  /// `jwt_token_<userKey>`. `jwtTokenKey` siempre contiene el de la sesión
+  /// activa (ApiService lo lee sin cambios).
+  static String jwtKeyFor(String userKey) => 'jwt_token_$userKey';
+
+  /// Clave en auth_box con el mapa de cuentas guardadas:
+  /// `userKey → user JSON`.
+  static const String authBoxSessionsKey = 'sessions';
 }

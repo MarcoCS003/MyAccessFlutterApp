@@ -3,10 +3,10 @@ import 'dart:io';
 
 import 'package:background_fetch/background_fetch.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 import '../../../core/constants/app_constants.dart';
+import '../../auth/data/session_store.dart';
 import '../../../services/api_service.dart';
 import '../data/notification_local_store.dart';
 import '../data/notification_sync_service.dart';
@@ -64,42 +64,35 @@ bool _shouldSyncOnOpen() {
 }
 
 Future<void> _executeSync({required bool checkPeakHour}) async {
-  final jwt = await _readJwt();
-  if (jwt == null || jwt.isEmpty) {
-    debugPrint('$_tag no JWT found, skipping sync');
-    return;
-  }
-
   if (checkPeakHour && _isPeakHour()) {
     debugPrint('$_tag peak hour, skipping sync');
     return;
   }
 
-  final syncService = NotificationSyncService(api: ApiService());
-  final notifications = await syncService.fetchPending();
-  debugPrint('$_tag fetched ${notifications.length} pending notifications');
-
-  final store = NotificationLocalStore.forCurrentUser();
-  for (final notification in notifications) {
-    try {
-      await store.upsert(notification);
-    } catch (e, stackTrace) {
-      debugPrint('$_tag upsert error for ${notification.id}: $e\n$stackTrace');
-    }
+  final sessionStore = SessionStore();
+  final sessions = sessionStore.listSessions();
+  if (sessions.isEmpty) {
+    debugPrint('$_tag no saved sessions, skipping sync');
+    return;
   }
 
-  // ACK best-effort para todas las notificaciones obtenidas que tengan
-  // backendId; se hace después de persistir para no perder datos si el
-  // inserto falla.
-  for (final notification in notifications) {
-    final backendId = notification.backendId;
-    if (backendId == null) continue;
-    unawaited(
-      syncService.ack(backendId).catchError((Object e) {
-        debugPrint('$_tag ACK error for $backendId: $e');
-        return Future<void>.value();
-      }),
-    );
+  // Multi-sesión: cada cuenta guardada se sincroniza con su PROPIO JWT, así
+  // los inboxes de todas las cuentas se mantienen al día aunque no sean la
+  // sesión activa. Un fallo en una cuenta se loggea y no detiene a las demás.
+  for (final session in sessions) {
+    try {
+      final jwt = await sessionStore.getJwt(session.userKey);
+      if (jwt == null || jwt.isEmpty) {
+        debugPrint('$_tag no JWT for ${session.userKey}, skipping account');
+        continue;
+      }
+      await syncAccountNotifications(
+        session: session,
+        syncService: NotificationSyncService(api: ApiService(authToken: jwt)),
+      );
+    } catch (e, stackTrace) {
+      debugPrint('$_tag sync error for ${session.userKey}: $e\n$stackTrace');
+    }
   }
 
   await Hive.box(
@@ -107,21 +100,56 @@ Future<void> _executeSync({required bool checkPeakHour}) async {
   ).put('lastNotificationSyncAt', DateTime.now().toIso8601String());
 }
 
+/// Sincroniza las notificaciones pendientes de UNA cuenta.
+///
+/// El endpoint `/notifications/sync` devuelve las pendientes del dueño del
+/// JWT usado, así que todo se guarda en el inbox de [session]. Si un item
+/// trae `user_id` y no coincide con la cuenta (inconsistencia del backend),
+/// se descarta y NO se hace ACK de él. Expuesta para pruebas unitarias.
+Future<void> syncAccountNotifications({
+  required SavedSession session,
+  required NotificationSyncService syncService,
+}) async {
+  final notifications = await syncService.fetchPending();
+  debugPrint(
+    '$_tag fetched ${notifications.length} pending for ${session.userKey}',
+  );
+
+  final store = NotificationLocalStore(userKey: session.userKey);
+  for (final notification in notifications) {
+    try {
+      final recipientId = notification.recipientUserId;
+      if (recipientId != null && recipientId != session.user.id) {
+        debugPrint(
+          '$_tag item ${notification.id} es de user $recipientId, '
+          'se descarta en el sync de ${session.userKey}',
+        );
+        continue;
+      }
+      await store.upsert(notification);
+
+      // ACK best-effort después de persistir, con el JWT de esta cuenta.
+      final backendId = notification.backendId;
+      if (backendId != null) {
+        unawaited(
+          syncService.ack(backendId).catchError((Object e) {
+            debugPrint('$_tag ACK error for $backendId: $e');
+            return Future<void>.value();
+          }),
+        );
+      }
+    } catch (e, stackTrace) {
+      debugPrint('$_tag upsert error for ${notification.id}: $e\n$stackTrace');
+    }
+  }
+}
+
 Future<void> _initHive() async {
   await Hive.initFlutter();
   await Hive.openBox(AppConstants.authBox);
+  await Hive.openBox(AppConstants.childrenBox);
   await Hive.openBox(AppConstants.notificationsBox);
   await Hive.openBox(AppConstants.settingsBox);
-}
-
-Future<String?> _readJwt() async {
-  try {
-    const secureStorage = FlutterSecureStorage();
-    return await secureStorage.read(key: AppConstants.jwtTokenKey);
-  } catch (e, stackTrace) {
-    debugPrint('$_tag error reading JWT: $e\n$stackTrace');
-    return null;
-  }
 }
 
 /// Horario pico: 7:00–9:00 y 13:00–15:00 hora local.

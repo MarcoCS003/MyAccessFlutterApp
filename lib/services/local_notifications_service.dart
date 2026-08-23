@@ -17,7 +17,7 @@ class LocalNotificationsService {
       'Notificaciones de acceso de alumnos';
 
   Future<void> init({void Function()? onTap}) async {
-    const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidInit = AndroidInitializationSettings('ic_notification');
     // Los permisos ya se piden vía FirebaseMessaging.requestPermission().
     const darwinInit = DarwinInitializationSettings(
       requestAlertPermission: false,
@@ -55,6 +55,7 @@ class LocalNotificationsService {
           _channelId,
           _channelName,
           channelDescription: _channelDescription,
+          icon: 'ic_notification',
           importance: Importance.high,
           priority: Priority.high,
         ),
