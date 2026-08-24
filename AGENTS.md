@@ -130,6 +130,11 @@ flutter build apk --release
 - `docs/promptStich.md` — Prompt stitching doc (Spanish).
 - `.mobiai/agent.yaml` — Intended architecture rules (note: some items like Freezed/Retrofit/Hive are aspirational and not yet reflected in `pubspec.yaml`).
 
+## Documentación en Outline (regla)
+
+- Los fixes y documentación del proyecto se registran en **Outline** (MCP `outline-ijl`), colección **MyAccessApp Flutter** (id `5e161870-fd25-4ecf-9c01-b64cc61c349e`).
+- **Regla:** si las herramientas de Outline no están disponibles o fallan (MCP caído, auth expirada, sin conexión), **NO intentes workarounds ni lo omitas en silencio**: pide al usuario que actualice el `.env` (credenciales/URL del MCP de Outline) y reintenta.
+
 ## Monorepo / Multi-package
 
 - Single Flutter app. No monorepo or workspace boundaries.
