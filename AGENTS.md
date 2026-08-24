@@ -30,6 +30,12 @@
   - Android: `android/app/google-services.json` (package `com.jmoreno.riverboldbrave`).
   - iOS: `ios/Runner/GoogleService-Info.plist` (bundle `com.ijl.clienteFlutterMyaccess`).
   - Dart options: `lib/firebase_options.dart`.
+- **Crashlytics is integrated** (`firebase_crashlytics`, Fase 8.2):
+  - Global capture in `main.dart`: `FlutterError.onError`, `PlatformDispatcher.onError`, and `runZonedGuarded` wrapping ALL of the async init (order matters: Firebase → Crashlytics handlers → zone). The FCM background handler has its own try/catch that reports via `recordError`.
+  - `ErrorWidget.builder` → `appErrorBuilder` in `lib/core/widgets/app_error_widget.dart` (friendly IJL-palette screen instead of the red one; red screen still shows in debug builds).
+  - ALL Crashlytics calls go through `lib/core/utils/crash_report.dart` (`crashLog` / `crashRecordError` / `crashSetUser` / `crashSetRole`) — best-effort wrappers that swallow errors so tests (no Firebase init) and the app never break. Use them, never `FirebaseCrashlytics.instance` directly, outside `main.dart`.
+  - **No PII ever** in breadcrumbs/keys: only `user_<id>`, `role`, FCM `data['type']`, `METHOD path` (no query/headers/body). User identity is set in `AuthNotifier` on login/restore/switch and cleared on logout.
+  - Hive hardening: catch blocks in `notification_local_store.dart` and `children_provider.dart` report and delete ONLY the affected `items_<userKey>` key — never `box.clear()`.
 - **No API service layer exists yet.** `lib/services/` only has `api_service.dart` (Dio) and `local_notifications_service.dart`; `lib/data/datasources/remote/` and `lib/data/models/` are empty.
 
 ## FCM Notifications (source of truth is local)

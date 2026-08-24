@@ -4,6 +4,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../core/constants/app_constants.dart';
 import '../core/errors/failures.dart';
+import '../core/utils/crash_report.dart';
 
 class ApiService {
   final Dio _dio;
@@ -66,6 +67,8 @@ class ApiService {
     bool requiresAuth = true,
   }) async {
     return _handleRequest(
+      'GET',
+      path,
       () => _dio.get<T>(
         path,
         queryParameters: queryParameters,
@@ -80,6 +83,8 @@ class ApiService {
     bool requiresAuth = true,
   }) async {
     return _handleRequest(
+      'POST',
+      path,
       () => _dio.post<T>(
         path,
         data: data,
@@ -94,6 +99,8 @@ class ApiService {
     bool requiresAuth = true,
   }) async {
     return _handleRequest(
+      'DELETE',
+      path,
       () => _dio.delete<T>(
         path,
         data: data,
@@ -102,7 +109,14 @@ class ApiService {
     );
   }
 
-  Future<T> _handleRequest<T>(Future<Response<T>> Function() request) async {
+  Future<T> _handleRequest<T>(
+    String method,
+    String path,
+    Future<Response<T>> Function() request,
+  ) async {
+    // Breadcrumb sin PII: solo método y path (sin query params, headers ni
+    // body), para reconstruir el contexto en un reporte de crash.
+    crashLog('api_request: $method $path');
     try {
       final response = await request();
       return response.data as T;

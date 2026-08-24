@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 import '../../../core/constants/app_constants.dart';
+import '../../../core/utils/crash_report.dart';
 import '../../../core/utils/user_key.dart';
 import '../models/notification_item.dart';
 
@@ -36,8 +39,10 @@ class NotificationLocalStore {
           )
           .toList();
       return dedupeAndSort(items);
-    } catch (e) {
+    } catch (e, st) {
       debugPrint('Error loading notifications from Hive: $e');
+      crashRecordError(e, st);
+      _deleteCorruptKey();
       return [];
     }
   }
@@ -46,9 +51,21 @@ class NotificationLocalStore {
     try {
       final sorted = dedupeAndSort(items);
       await _box.put(_key, sorted.map((n) => n.toJson()).toList());
-    } catch (e) {
+    } catch (e, st) {
       debugPrint('Error saving notifications to Hive: $e');
+      crashRecordError(e, st);
+      _deleteCorruptKey();
     }
+  }
+
+  /// Borra SOLO la clave de esta cuenta tras un fallo (nunca box.clear(),
+  /// que borraría las demás cuentas del dispositivo). El próximo sync
+  /// repuebla el inbox. Best-effort: si el box ni siquiera está abierto,
+  /// no hace nada.
+  void _deleteCorruptKey() {
+    try {
+      unawaited(_box.delete(_key));
+    } catch (_) {}
   }
 
   /// Inserta solo si no existe otro item con el mismo id.

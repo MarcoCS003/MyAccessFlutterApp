@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,7 +12,9 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'core/constants/app_constants.dart';
 import 'core/router/router.dart';
 import 'core/theme/theme.dart';
+import 'core/utils/crash_report.dart';
 import 'core/utils/user_key.dart';
+import 'core/widgets/app_error_widget.dart';
 import 'features/auth/data/session_store.dart';
 import 'features/auth/providers/auth_provider.dart';
 import 'features/notifications/background/background_sync_register.dart';
@@ -84,72 +88,100 @@ String? _routeNotification(NotificationItem notification) =>
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  await Hive.initFlutter();
-  await Hive.openBox(AppConstants.authBox);
-  await Hive.openBox(AppConstants.childrenBox);
-  await Hive.openBox(AppConstants.notificationsBox);
+  crashLog('fcm_received: type=${message.data['type']}');
+  try {
+    await Hive.initFlutter();
+    await Hive.openBox(AppConstants.authBox);
+    await Hive.openBox(AppConstants.childrenBox);
+    await Hive.openBox(AppConstants.notificationsBox);
 
-  // Persistir en la BD local con deduplicación; solo si es nuevo se muestra
-  // la notificación del sistema (mensajes data-only no generan UI en bg).
-  // Multi-sesión: se enruta al inbox de la cuenta a la que pertenece el
-  // mensaje (por user_id; payloads viejos usan el ruteo legado). Si el
-  // usuario destinatario no tiene sesión en el dispositivo, se descarta.
-  debugPrint('[FCM][BG] data: ${message.data}');
-  final notification = NotificationItem.fromFcm(message.data);
-  final targetKey = _routeNotification(notification);
-  if (targetKey == null) {
-    final known = SessionStore().listSessions()
-        .map((s) => '${s.userKey}#${s.user.id}')
-        .toList();
-    debugPrint(
-      '[FCM][BG] descartada: user_id ${notification.recipientUserId} '
-      'sin sesión en el dispositivo (sesiones: $known)',
-    );
-    return;
-  }
-  final inserted = await NotificationLocalStore(
-    userKey: targetKey,
-  ).upsert(notification);
-  if (inserted) {
-    final service = LocalNotificationsService();
-    await service.init();
-    await service.showAttendance(notification);
-  }
+    // Persistir en la BD local con deduplicación; solo si es nuevo se muestra
+    // la notificación del sistema (mensajes data-only no generan UI en bg).
+    // Multi-sesión: se enruta al inbox de la cuenta a la que pertenece el
+    // mensaje (por user_id; payloads viejos usan el ruteo legado). Si el
+    // usuario destinatario no tiene sesión en el dispositivo, se descarta.
+    debugPrint('[FCM][BG] data: ${message.data}');
+    final notification = NotificationItem.fromFcm(message.data);
+    final targetKey = _routeNotification(notification);
+    if (targetKey == null) {
+      final known = SessionStore()
+          .listSessions()
+          .map((s) => '${s.userKey}#${s.user.id}')
+          .toList();
+      debugPrint(
+        '[FCM][BG] descartada: user_id ${notification.recipientUserId} '
+        'sin sesión en el dispositivo (sesiones: $known)',
+      );
+      return;
+    }
+    final inserted = await NotificationLocalStore(
+      userKey: targetKey,
+    ).upsert(notification);
+    if (inserted) {
+      final service = LocalNotificationsService();
+      await service.init();
+      await service.showAttendance(notification);
+    }
 
-  // ACK best-effort con el JWT de la cuenta dueña.
-  await _ackForOwner(message.data, targetKey, tag: '[FCM][BG]');
+    // ACK best-effort con el JWT de la cuenta dueña.
+    await _ackForOwner(message.data, targetKey, tag: '[FCM][BG]');
+  } catch (e, st) {
+    // El handler corre en un isolate de background: cualquier fallo se
+    // reporta a Crashlytics y nunca se propaga.
+    crashRecordError(e, st);
+    debugPrint('[FCM][BG] unhandled error: $e\n$st');
+  }
 }
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
-  // FCM permissions and background handler registration.
-  await FirebaseMessaging.instance.requestPermission(
-    alert: true,
-    badge: true,
-    sound: true,
+  // Crashlytics: captura global de errores. El orden importa: Firebase
+  // primero, luego los handlers, y TODO el resto del init dentro de la
+  // zona protegida.
+  FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+  PlatformDispatcher.instance.onError = (error, stack) {
+    FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+    return true;
+  };
+  ErrorWidget.builder = appErrorBuilder;
+
+  await runZonedGuarded(
+    () async {
+      // FCM permissions and background handler registration.
+      await FirebaseMessaging.instance.requestPermission(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+      FirebaseMessaging.onBackgroundMessage(
+        _firebaseMessagingBackgroundHandler,
+      );
+
+      await Hive.initFlutter();
+      await Hive.openBox(AppConstants.authBox);
+      await Hive.openBox(AppConstants.childrenBox);
+      await Hive.openBox(AppConstants.notificationsBox);
+      await Hive.openBox(AppConstants.settingsBox);
+
+      // Registrar tarea periódica de sincronización de notificaciones pendientes.
+      await registerBackgroundSync();
+
+      // Sync de respaldo al abrir la app si la última sincronización fue hace
+      // más de 12 horas. Es especialmente útil en iOS donde background_fetch no
+      // garantiza ejecución periódica.
+      unawaited(maybeSyncOnAppOpen());
+
+      // Datos de locale para los DateFormat con 'es' (detalle del alumno).
+      await initializeDateFormatting('es');
+
+      runApp(const ProviderScope(child: MyApp()));
+    },
+    (error, stack) {
+      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+    },
   );
-  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-
-  await Hive.initFlutter();
-  await Hive.openBox(AppConstants.authBox);
-  await Hive.openBox(AppConstants.childrenBox);
-  await Hive.openBox(AppConstants.notificationsBox);
-  await Hive.openBox(AppConstants.settingsBox);
-
-  // Registrar tarea periódica de sincronización de notificaciones pendientes.
-  await registerBackgroundSync();
-
-  // Sync de respaldo al abrir la app si la última sincronización fue hace
-  // más de 12 horas. Es especialmente útil en iOS donde background_fetch no
-  // garantiza ejecución periódica.
-  unawaited(maybeSyncOnAppOpen());
-
-  // Datos de locale para los DateFormat con 'es' (detalle del alumno).
-  await initializeDateFormatting('es');
-
-  runApp(const ProviderScope(child: MyApp()));
 }
 
 class MyApp extends ConsumerStatefulWidget {
@@ -195,7 +227,8 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
   Future<bool?> _persistRouted(NotificationItem notification) async {
     final targetKey = _routeNotification(notification);
     if (targetKey == null) {
-      final known = SessionStore().listSessions()
+      final known = SessionStore()
+          .listSessions()
           .map((s) => '${s.userKey}#${s.user.id}')
           .toList();
       debugPrint(
@@ -217,6 +250,7 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
     // Foreground: persistir en BD local y mostrar notificación del sistema.
     FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
       debugPrint('[FCM][FG] data: ${message.data}');
+      crashLog('fcm_received: type=${message.data['type']}');
       final notification = NotificationItem.fromFcm(message.data);
       final isNew = await _persistRouted(notification);
       // Descartada (usuario sin sesión aquí): sin bandeja ni ACK.
@@ -234,6 +268,7 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
     // (la deduplicación evita duplicar si el handler ya la guardó) y navegar.
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) async {
       debugPrint('[FCM][TAP] data: ${message.data}');
+      crashLog('fcm_received: type=${message.data['type']}');
       final notification = NotificationItem.fromFcm(message.data);
       final isNew = await _persistRouted(notification);
       if (isNew != null) {
@@ -249,6 +284,7 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
     FirebaseMessaging.instance.getInitialMessage().then((message) async {
       if (message != null) {
         debugPrint('[FCM][INITIAL] data: ${message.data}');
+        crashLog('fcm_received: type=${message.data['type']}');
         final notification = NotificationItem.fromFcm(message.data);
         final isNew = await _persistRouted(notification);
         if (isNew != null) {

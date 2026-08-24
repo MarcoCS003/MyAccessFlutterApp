@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/errors/failures.dart';
+import '../../../core/utils/crash_report.dart';
 import '../../../core/utils/user_key.dart';
 import '../../../services/api_service.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -198,8 +201,10 @@ class ChildrenNotifier extends StateNotifier<AsyncValue<List<Child>>> {
     try {
       final box = Hive.box(AppConstants.childrenBox);
       await box.put(_hiveKey, children.map((c) => c.toJson()).toList());
-    } catch (e) {
+    } catch (e, st) {
       debugPrint('Error saving children to Hive: $e');
+      crashRecordError(e, st);
+      _deleteCorruptHiveKey();
     }
   }
 
@@ -210,9 +215,21 @@ class ChildrenNotifier extends StateNotifier<AsyncValue<List<Child>>> {
       return (items as List)
           .map((e) => Child.fromJson(Map<String, dynamic>.from(e)))
           .toList();
-    } catch (e) {
+    } catch (e, st) {
       debugPrint('Error loading children from Hive: $e');
+      crashRecordError(e, st);
+      _deleteCorruptHiveKey();
       return [];
     }
+  }
+
+  /// Borra SOLO la clave de esta cuenta tras un fallo (nunca box.clear(),
+  /// que borraría las demás cuentas del dispositivo). El próximo load del
+  /// backend la repuebla. Best-effort: si el box ni siquiera está abierto,
+  /// no hace nada.
+  void _deleteCorruptHiveKey() {
+    try {
+      unawaited(Hive.box(AppConstants.childrenBox).delete(_hiveKey));
+    } catch (_) {}
   }
 }

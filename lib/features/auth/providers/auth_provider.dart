@@ -6,6 +6,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/errors/failures.dart';
+import '../../../core/utils/crash_report.dart';
 import '../../../core/utils/user_key.dart';
 import '../../../services/api_service.dart';
 import '../data/session_store.dart';
@@ -35,9 +36,21 @@ class AuthNotifier extends StateNotifier<AuthState> {
   final ApiService _apiService;
   final SessionStore _sessionStore;
 
+  /// Identifica al usuario en Crashlytics con su ID interno (sin PII) y su
+  /// rol. Con null limpia la identificación (logout / sin sesión).
+  Future<void> _identifyCrashlyticsUser(User? user) async {
+    if (user == null) {
+      await crashSetUser('');
+    } else {
+      await crashSetUser('user_${user.id}');
+      await crashSetRole(user.role);
+    }
+  }
+
   Future<void> signInWithEmailPassword(String email, String password) async {
     try {
       state = state.copyWith(status: AuthStatus.loading, errorMessage: null);
+      crashLog('login_attempt');
 
       final fcmToken = await _getFcmTokenSafely();
 
@@ -63,6 +76,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       await _persistSession(jwtToken: accessToken, user: user);
       await _registerFcmToken();
       _listenToTokenRefresh();
+      await _identifyCrashlyticsUser(user);
 
       state = AuthState(status: AuthStatus.authenticated, user: user);
     } on Failure catch (e) {
@@ -111,6 +125,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       await _persistSession(jwtToken: accessToken, user: user);
       await _registerFcmToken();
       _listenToTokenRefresh();
+      await _identifyCrashlyticsUser(user);
 
       state = AuthState(status: AuthStatus.authenticated, user: user);
     } on Failure catch (e) {
@@ -161,6 +176,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         state = const AuthState(status: AuthStatus.unauthenticated);
         return;
       }
+      crashLog('logout');
       await _removeSessionInternal(userStorageKey(user.email));
 
       final remaining = _sessionStore.listSessions();
@@ -171,8 +187,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
           user: remaining.first.user,
         );
         await _registerFcmToken();
+        await _identifyCrashlyticsUser(remaining.first.user);
       } else {
         state = const AuthState(status: AuthStatus.unauthenticated);
+        await _identifyCrashlyticsUser(null);
       }
     } catch (e) {
       state = AuthState(
@@ -246,6 +264,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
             errorMessage:
                 'La sesión de esa cuenta expiró. Vuelve a iniciar sesión.',
           );
+          await _identifyCrashlyticsUser(previousUser);
         } else {
           await _sessionStore.clearActive();
           state = const AuthState(
@@ -253,6 +272,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
             errorMessage:
                 'La sesión de esa cuenta expiró. Vuelve a iniciar sesión.',
           );
+          await _identifyCrashlyticsUser(null);
         }
         return false;
       }
@@ -261,6 +281,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
 
     state = AuthState(status: AuthStatus.authenticated, user: session.user);
+    await _identifyCrashlyticsUser(session.user);
     return true;
   }
 
@@ -281,6 +302,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
           await _sessionStore.saveSession(user: user, jwt: token);
         }
         state = AuthState(status: AuthStatus.authenticated, user: user);
+        await _identifyCrashlyticsUser(user);
       } else {
         state = const AuthState(status: AuthStatus.unauthenticated);
       }

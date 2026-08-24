@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 import '../../../core/constants/app_constants.dart';
+import '../../../core/utils/crash_report.dart';
 import '../../auth/data/session_store.dart';
 import '../../../services/api_service.dart';
 import '../data/notification_local_store.dart';
@@ -116,6 +117,7 @@ Future<void> syncAccountNotifications({
   );
 
   final store = NotificationLocalStore(userKey: session.userKey);
+  var insertedCount = 0;
   for (final notification in notifications) {
     try {
       final recipientId = notification.recipientUserId;
@@ -126,7 +128,8 @@ Future<void> syncAccountNotifications({
         );
         continue;
       }
-      await store.upsert(notification);
+      final inserted = await store.upsert(notification);
+      if (inserted) insertedCount++;
 
       // ACK best-effort después de persistir, con el JWT de esta cuenta.
       final backendId = notification.backendId;
@@ -142,6 +145,7 @@ Future<void> syncAccountNotifications({
       debugPrint('$_tag upsert error for ${notification.id}: $e\n$stackTrace');
     }
   }
+  crashLog('notif_sync: inserted=$insertedCount');
 }
 
 Future<void> _initHive() async {

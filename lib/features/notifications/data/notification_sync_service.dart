@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../../../core/utils/crash_report.dart';
 import '../../../services/api_service.dart';
 import '../models/notification_item.dart';
 
@@ -21,6 +22,7 @@ class NotificationSyncService {
       );
       final list = response['notifications'];
       if (list is! List<dynamic>) return [];
+      crashLog('notif_sync: fetched=${list.length}');
       return list
           .whereType<Map<String, dynamic>>()
           .map(NotificationItem.fromSyncApi)
