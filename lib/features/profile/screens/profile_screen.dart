@@ -28,7 +28,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
     final displayName = user?.name ?? 'Usuario';
     final displayEmail = user?.email ?? '';
-    final role = user?.role == 'teacher' ? 'Docente' : 'Tutor';
+    final isTeacher = user?.role == 'teacher';
+    final role = isTeacher ? 'Docente' : 'Tutor';
 
     final parts = displayName.trim().split(' ');
     final initials = parts.length >= 2
@@ -114,60 +115,66 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           child: ListView(
             padding: const EdgeInsets.symmetric(vertical: 20),
             children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 6,
-                ),
-                child: Text(
-                  'Cuentas',
-                  style: GoogleFonts.inter(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: AppTheme.textSecondaryColor,
-                    letterSpacing: 1.1,
+              // Solo docentes pueden agregar cuentas. La sección completa
+              // se oculta para tutores con una sola cuenta (no habría nada
+              // que cambiar ni agregar).
+              if (isTeacher || sessions.length > 1) ...[
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 6,
+                  ),
+                  child: Text(
+                    'Cuentas',
+                    style: GoogleFonts.inter(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.textSecondaryColor,
+                      letterSpacing: 1.1,
+                    ),
                   ),
                 ),
-              ),
 
-              ...sessions.map(
-                (session) => _buildAccountTile(
-                  session,
-                  isActive: user != null && session.user.email == user.email,
+                ...sessions.map(
+                  (session) => _buildAccountTile(
+                    session,
+                    isActive: user != null && session.user.email == user.email,
+                  ),
                 ),
-              ),
 
-              ListTile(
-                leading: Container(
-                  width: 38,
-                  height: 38,
-                  decoration: BoxDecoration(
-                    color: AppTheme.accentColor.withValues(alpha: 0.10),
-                    borderRadius: BorderRadius.circular(10),
+                if (isTeacher)
+                  ListTile(
+                    leading: Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: AppTheme.accentColor.withValues(alpha: 0.10),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(
+                        Icons.person_add_alt_1_rounded,
+                        color: AppTheme.accentColor,
+                        size: 20,
+                      ),
+                    ),
+                    title: Text(
+                      'Agregar cuenta',
+                      style: GoogleFonts.inter(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                        color: AppTheme.textPrimaryColor,
+                      ),
+                    ),
+                    subtitle: Text(
+                      'Inicia sesión con otra cuenta sin cerrar la actual',
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        color: AppTheme.textSecondaryColor,
+                      ),
+                    ),
+                    onTap: () => context.push('/login?addAccount=1'),
                   ),
-                  child: const Icon(
-                    Icons.person_add_alt_1_rounded,
-                    color: AppTheme.accentColor,
-                    size: 20,
-                  ),
-                ),
-                title: Text(
-                  'Agregar cuenta',
-                  style: GoogleFonts.inter(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                    color: AppTheme.textPrimaryColor,
-                  ),
-                ),
-                subtitle: Text(
-                  'Inicia sesión con otra cuenta sin cerrar la actual',
-                  style: GoogleFonts.inter(
-                    fontSize: 12,
-                    color: AppTheme.textSecondaryColor,
-                  ),
-                ),
-                onTap: () => context.push('/login?addAccount=1'),
-              ),
+              ],
 
               const Divider(
                 height: 24,
