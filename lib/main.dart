@@ -29,48 +29,28 @@ import 'services/local_notifications_service.dart';
 
 final _localNotifications = LocalNotificationsService();
 
-/// Envía el ACK de una notificación al backend en modo best-effort.
-///
-/// Extrae [notification_id] de [data], lo convierte a [int] y llama a
-/// [NotificationSyncService.ack]. Cualquier error se loggea y nunca se
-/// propaga. El [syncService] permite inyectar una instancia (útil en el
-/// handler de background); si es null se crea una nueva.
-void _ackBestEffort(
-  Map<String, dynamic> data, {
-  NotificationSyncService? syncService,
-  String tag = '[FCM]',
-}) {
-  final rawId = data['notification_id'];
-  if (rawId == null) return;
-
-  final backendId = int.tryParse(rawId.toString());
-  if (backendId == null) return;
-
-  final service = syncService ?? NotificationSyncService();
-  unawaited(
-    service.ack(backendId).catchError((Object e) {
-      debugPrint('$tag ACK error for $backendId: $e');
-      return Future<void>.value();
-    }),
-  );
-}
-
-/// ACK best-effort autenticado con el JWT de la cuenta DUEÑA de la
+/// ACK autenticado con el JWT de la cuenta DUEÑA de la
 /// notificación (no necesariamente la sesión activa). Si esa cuenta no
-/// tiene JWT guardado, se omite el ACK.
+/// tiene JWT guardado, se omite el ACK. Si falla, el id queda en la cola local
+/// de reintento de esa cuenta.
 Future<void> _ackForOwner(
   Map<String, dynamic> data,
   String ownerKey, {
   String tag = '[FCM]',
 }) async {
   try {
+    final rawId = data['notification_id'] ?? data['id'];
+    final backendId = int.tryParse(rawId?.toString() ?? '');
+    if (backendId == null) return;
+
     final jwt = await SessionStore().getJwt(ownerKey);
     if (jwt == null || jwt.isEmpty) return;
-    _ackBestEffort(
-      data,
+    final acked = await ackNotificationForAccount(
+      userKey: ownerKey,
+      backendId: backendId,
       syncService: NotificationSyncService(api: ApiService(authToken: jwt)),
-      tag: tag,
     );
+    if (!acked) debugPrint('$tag ACK queued for account');
   } catch (e) {
     debugPrint('$tag ACK setup error: $e');
   }
@@ -101,7 +81,11 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     // mensaje (por user_id; payloads viejos usan el ruteo legado). Si el
     // usuario destinatario no tiene sesión en el dispositivo, se descarta.
     debugPrint('[FCM][BG] data: ${message.data}');
-    final notification = NotificationItem.fromFcm(message.data);
+    final notification = NotificationItem.tryFromFcm(message.data);
+    if (notification == null) {
+      debugPrint('[FCM][BG] payload descartado por fecha inválida');
+      return;
+    }
     final targetKey = _routeNotification(notification);
     if (targetKey == null) {
       final known = SessionStore()
@@ -114,10 +98,11 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
       );
       return;
     }
-    final inserted = await NotificationLocalStore(
+    final persistence = await NotificationLocalStore(
       userKey: targetKey,
     ).upsert(notification);
-    if (inserted) {
+    if (!persistence.persisted) return;
+    if (persistence.inserted) {
       final service = LocalNotificationsService();
       await service.init();
       await service.showAttendance(notification);
@@ -222,9 +207,11 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
   /// actualizar la UI en caliente; si es de otra cuenta guardada, escribe
   /// directo en Hive sin tocar el estado en memoria.
   ///
-  /// Devuelve true si era nueva; false si era duplicada; null si se
-  /// descartó (el usuario destinatario no tiene sesión en el dispositivo).
-  Future<bool?> _persistRouted(NotificationItem notification) async {
+  /// Devuelve el resultado de persistencia; null si se descartó (el usuario
+  /// destinatario no tiene sesión en el dispositivo).
+  Future<NotificationUpsertResult?> _persistRouted(
+    NotificationItem notification,
+  ) async {
     final targetKey = _routeNotification(notification);
     if (targetKey == null) {
       final known = SessionStore()
@@ -251,11 +238,12 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
     FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
       debugPrint('[FCM][FG] data: ${message.data}');
       crashLog('fcm_received: type=${message.data['type']}');
-      final notification = NotificationItem.fromFcm(message.data);
-      final isNew = await _persistRouted(notification);
+      final notification = NotificationItem.tryFromFcm(message.data);
+      if (notification == null) return;
+      final persistence = await _persistRouted(notification);
       // Descartada (usuario sin sesión aquí): sin bandeja ni ACK.
-      if (isNew == null) return;
-      if (isNew) {
+      if (persistence == null || !persistence.persisted) return;
+      if (persistence.inserted) {
         await _localNotifications.showAttendance(notification);
       }
       final ownerKey = _routeNotification(notification);
@@ -269,9 +257,10 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) async {
       debugPrint('[FCM][TAP] data: ${message.data}');
       crashLog('fcm_received: type=${message.data['type']}');
-      final notification = NotificationItem.fromFcm(message.data);
-      final isNew = await _persistRouted(notification);
-      if (isNew != null) {
+      final notification = NotificationItem.tryFromFcm(message.data);
+      if (notification == null) return;
+      final persistence = await _persistRouted(notification);
+      if (persistence != null && persistence.persisted) {
         final ownerKey = _routeNotification(notification);
         if (ownerKey != null) {
           await _ackForOwner(message.data, ownerKey, tag: '[FCM][TAP]');
@@ -285,9 +274,10 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
       if (message != null) {
         debugPrint('[FCM][INITIAL] data: ${message.data}');
         crashLog('fcm_received: type=${message.data['type']}');
-        final notification = NotificationItem.fromFcm(message.data);
-        final isNew = await _persistRouted(notification);
-        if (isNew != null) {
+        final notification = NotificationItem.tryFromFcm(message.data);
+        if (notification == null) return;
+        final persistence = await _persistRouted(notification);
+        if (persistence != null && persistence.persisted) {
           final ownerKey = _routeNotification(notification);
           if (ownerKey != null) {
             await _ackForOwner(message.data, ownerKey, tag: '[FCM][INITIAL]');

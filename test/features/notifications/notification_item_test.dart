@@ -107,6 +107,7 @@ void main() {
       });
 
       expect(item.backendId, 456);
+      expect(item.id, 'backend_456');
       expect(item.studentName, 'Pedrito Perez');
       expect(item.event, 'check_out');
       expect(item.studentId, 10);
@@ -114,17 +115,19 @@ void main() {
   });
 
   group('NotificationItem.fromSyncApi', () {
-    test('mapea respuesta del endpoint sync', () {
+    test('mapea el contrato real del endpoint sync', () {
       final item = NotificationItem.fromSyncApi({
         'id': 789,
+        'user_id': 42,
         'type': 'attendance',
-        'event': 'check_in',
+        'event': 'entry',
         'student_id': 5,
-        'student_name': 'María López',
-        'timestamp': '2026-08-01T07:30:00-06:00',
+        'person_name': 'María López',
+        'recorded_at': '2026-08-01T07:30:00-06:00',
       });
 
       expect(item.backendId, 789);
+      expect(item.recipientUserId, 42);
       expect(item.type, 'attendance');
       expect(item.event, 'check_in');
       expect(item.studentId, 5);
@@ -133,7 +136,7 @@ void main() {
         item.timestamp,
         DateTime.parse('2026-08-01T07:30:00-06:00').toLocal(),
       );
-      expect(item.id, '5_check_in_${item.timestamp.toIso8601String()}');
+      expect(item.id, 'backend_789');
     });
 
     test('mapea teacher_id cuando no hay student_id', () {
@@ -149,6 +152,7 @@ void main() {
       expect(item.backendId, 100);
       expect(item.studentId, 20);
       expect(item.type, 'teacher_attendance');
+      expect(item.event, 'check_out');
     });
 
     test('student_id como string se convierte a int', () {
@@ -162,6 +166,43 @@ void main() {
       });
 
       expect(item.studentId, 7);
+    });
+
+    test('rechaza una fecha ausente o inválida', () {
+      expect(
+        () => NotificationItem.fromSyncApi({
+          'id': 102,
+          'user_id': 42,
+          'event': 'entry',
+          'student_id': 7,
+          'person_name': 'Luis Hernández',
+          'recorded_at': 'not-a-date',
+        }),
+        throwsFormatException,
+      );
+    });
+
+    test('el mismo backendId produce la misma identidad en FCM y sync', () {
+      final fcm = NotificationItem.fromFcm({
+        'notification_id': '103',
+        'user_id': '42',
+        'event': 'entry',
+        'student_id': '7',
+        'person_name': 'Luis Hernández',
+        'recorded_at': '2026-08-01T08:00:00-06:00',
+      });
+      final sync = NotificationItem.fromSyncApi({
+        'id': '103',
+        'user_id': 42,
+        'event': 'entry',
+        'student_id': 7,
+        'person_name': 'Luis Hernández',
+        'recorded_at': '2026-08-01T08:00:00-06:00',
+      });
+
+      expect(fcm.backendId, 103);
+      expect(sync.backendId, 103);
+      expect(fcm.id, sync.id);
     });
   });
 }

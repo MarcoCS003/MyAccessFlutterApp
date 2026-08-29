@@ -9,7 +9,7 @@ import '../../../core/utils/user_key.dart';
 import '../models/notification_item.dart';
 
 /// Acceso compartido a la caja Hive de notificaciones. Centraliza la
-/// deduplicación por id y el orden (más reciente primero) para que el
+/// deduplicación por identidad y el orden (más reciente primero) para que el
 /// provider y el handler de background de FCM escriban igual.
 ///
 /// Aislamiento por cuenta: cada usuario lee/escribe bajo `items_<userKey>`.
@@ -47,14 +47,16 @@ class NotificationLocalStore {
     }
   }
 
-  Future<void> saveAll(List<NotificationItem> items) async {
+  Future<bool> saveAll(List<NotificationItem> items) async {
     try {
       final sorted = dedupeAndSort(items);
       await _box.put(_key, sorted.map((n) => n.toJson()).toList());
+      return true;
     } catch (e, st) {
       debugPrint('Error saving notifications to Hive: $e');
       crashRecordError(e, st);
       _deleteCorruptKey();
+      return false;
     }
   }
 
@@ -68,27 +70,59 @@ class NotificationLocalStore {
     } catch (_) {}
   }
 
-  /// Inserta solo si no existe otro item con el mismo id.
-  /// Devuelve true si se insertó (útil para decidir si mostrar bandeja).
-  Future<bool> upsert(NotificationItem item) async {
+  /// Inserta solo si no existe otro item con la misma identidad.
+  ///
+  /// Cuando existe [NotificationItem.backendId], esa identidad tiene prioridad
+  /// sobre el id local para colapsar la misma fila recibida por FCM y sync.
+  Future<NotificationUpsertResult> upsert(NotificationItem item) async {
     final items = load();
-    if (items.any((n) => n.id == item.id)) return false;
+    if (items.any((n) => isSameNotification(n, item))) {
+      return const NotificationUpsertResult.persistedDuplicate();
+    }
     items.add(item);
-    await saveAll(items);
-    return true;
+    final persisted = await saveAll(items);
+    if (!persisted) return const NotificationUpsertResult.failure();
+    return const NotificationUpsertResult.persistedInsert();
   }
 
-  /// Colapsa duplicados por id (conserva la versión marcada como leída)
-  /// y ordena de más reciente a más antiguo.
+  /// Colapsa duplicados por backendId o, si no existe, por id local. Conserva
+  /// la versión marcada como leída y ordena de más reciente a más antiguo.
   static List<NotificationItem> dedupeAndSort(List<NotificationItem> items) {
     final byId = <String, NotificationItem>{};
     for (final n in items) {
-      final prev = byId[n.id];
+      final prev = byId[_identityKey(n)];
       if (prev == null || (n.isRead && !prev.isRead)) {
-        byId[n.id] = n;
+        byId[_identityKey(n)] = n;
       }
     }
     return byId.values.toList()
       ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
   }
+
+  static bool isSameNotification(
+    NotificationItem first,
+    NotificationItem second,
+  ) => _identityKey(first) == _identityKey(second);
+
+  static String _identityKey(NotificationItem item) =>
+      item.backendId != null ? 'backend:${item.backendId}' : 'local:${item.id}';
+}
+
+class NotificationUpsertResult {
+  const NotificationUpsertResult._({
+    required this.persisted,
+    required this.inserted,
+  });
+
+  const NotificationUpsertResult.persistedInsert()
+    : this._(persisted: true, inserted: true);
+
+  const NotificationUpsertResult.persistedDuplicate()
+    : this._(persisted: true, inserted: false);
+
+  const NotificationUpsertResult.failure()
+    : this._(persisted: false, inserted: false);
+
+  final bool persisted;
+  final bool inserted;
 }

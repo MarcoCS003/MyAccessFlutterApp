@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:cliente_flutter_myaccess/core/errors/failures.dart';
 import 'package:cliente_flutter_myaccess/features/notifications/data/notification_sync_service.dart';
 import 'package:cliente_flutter_myaccess/services/api_service.dart';
 
@@ -24,7 +25,8 @@ void main() {
 
         final result = await syncService.fetchPending();
 
-        expect(result, isEmpty);
+        expect(result.succeeded, isTrue);
+        expect(result.notifications, isEmpty);
       },
     );
 
@@ -36,11 +38,12 @@ void main() {
           'notifications': [
             {
               'id': 456,
+              'user_id': 10,
               'type': 'attendance',
-              'event': 'check_in',
+              'event': 'entry',
               'student_id': 10,
-              'student_name': 'Pedrito Perez',
-              'timestamp': '2026-08-01T07:30:00-06:00',
+              'person_name': 'Pedrito Perez',
+              'recorded_at': '2026-08-01T07:30:00-06:00',
             },
           ],
         },
@@ -48,15 +51,17 @@ void main() {
 
       final result = await syncService.fetchPending();
 
-      expect(result.length, 1);
-      expect(result.first.backendId, 456);
-      expect(result.first.studentName, 'Pedrito Perez');
-      expect(result.first.event, 'check_in');
-      expect(result.first.studentId, 10);
+      expect(result.succeeded, isTrue);
+      expect(result.notifications.length, 1);
+      expect(result.notifications.first.backendId, 456);
+      expect(result.notifications.first.recipientUserId, 10);
+      expect(result.notifications.first.studentName, 'Pedrito Perez');
+      expect(result.notifications.first.event, 'check_in');
+      expect(result.notifications.first.studentId, 10);
     });
 
     test(
-      'fetchPending devuelve lista vacía si el backend responde sin clave notifications',
+      'fetchPending informa error de parseo sin clave notifications',
       () async {
         when(
           () => mockApi.get<Map<String, dynamic>>('/notifications/sync'),
@@ -64,12 +69,13 @@ void main() {
 
         final result = await syncService.fetchPending();
 
-        expect(result, isEmpty);
+        expect(result.succeeded, isFalse);
+        expect(result.failure?.kind, NotificationSyncFailureKind.parse);
       },
     );
 
     test(
-      'fetchPending no propaga excepciones y devuelve lista vacía',
+      'fetchPending informa error de red sin propagar excepciones',
       () async {
         when(
           () => mockApi.get<Map<String, dynamic>>('/notifications/sync'),
@@ -77,7 +83,8 @@ void main() {
 
         final result = await syncService.fetchPending();
 
-        expect(result, isEmpty);
+        expect(result.notifications, isEmpty);
+        expect(result.failure?.kind, NotificationSyncFailureKind.network);
       },
     );
 
@@ -86,20 +93,31 @@ void main() {
         () => mockApi.post<dynamic>('/notifications/ack/456'),
       ).thenAnswer((_) async => null);
 
-      await syncService.ack(456);
+      final result = await syncService.ack(456);
 
+      expect(result.succeeded, isTrue);
       verify(() => mockApi.post<dynamic>('/notifications/ack/456')).called(1);
     });
 
-    test('ack no propaga excepciones', () async {
+    test('ack informa error sin propagar excepciones', () async {
       when(
         () => mockApi.post<dynamic>('/notifications/ack/456'),
       ).thenThrow(Exception('network error'));
 
-      await syncService.ack(456);
+      final result = await syncService.ack(456);
 
-      // Si no lanza, el test pasa.
-      expect(true, isTrue);
+      expect(result.succeeded, isFalse);
+      expect(result.failure?.kind, NotificationSyncFailureKind.network);
+    });
+
+    test('clasifica un 401 como no autorizado', () async {
+      when(
+        () => mockApi.get<Map<String, dynamic>>('/notifications/sync'),
+      ).thenThrow(const ServerFailure('No autorizado', statusCode: 401));
+
+      final result = await syncService.fetchPending();
+
+      expect(result.failure?.kind, NotificationSyncFailureKind.unauthorized);
     });
   });
 }

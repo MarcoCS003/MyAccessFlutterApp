@@ -65,70 +65,121 @@ class NotificationItem {
       'event_type',
       'tipo',
     ]);
-    final timestampRaw = _firstString(data, const [
-      'timestamp',
-      'recorded_at',
-      'created_at',
-    ]);
     final studentIdRaw = _firstString(data, const [
       'student_id',
       'studentId',
       'alumno_id',
       'teacher_id',
     ]);
+    final timestampRaw = _firstString(data, const [
+      'timestamp',
+      'recorded_at',
+      'created_at',
+    ]);
+    final backendId = _parseInt(
+      _firstValue(data, const ['notification_id', 'id']),
+    );
+    final timestamp = _parseTimestamp(timestampRaw);
 
     return NotificationItem(
-      // El id usa las cadenas crudas del payload: con las claves canónicas
-      // genera los mismos ids de siempre y la deduplicación por id contra
-      // lo ya guardado en Hive sigue funcionando.
-      id: '${studentIdRaw}_${eventRaw ?? 'check_in'}_$timestampRaw',
-      backendId: int.tryParse(
-        _firstString(data, const ['notification_id']) ?? '',
+      id: _localId(
+        backendId: backendId,
+        personId: studentIdRaw,
+        event: eventRaw,
+        timestamp: timestampRaw,
       ),
-      recipientUserId: int.tryParse(
-        _firstString(data, const ['user_id', 'userId']) ?? '',
+      backendId: backendId,
+      recipientUserId: _parseInt(
+        _firstValue(data, const ['user_id', 'userId']),
       ),
       type: data['type']?.toString() ?? 'attendance',
       event: _normalizeEvent(eventRaw),
       studentName:
           _firstString(data, const [
+            'person_name',
             'student_name',
             'studentName',
-            'person_name',
             'nombre',
             'name',
           ]) ??
           'Alumno',
       studentId: int.tryParse(studentIdRaw ?? '0') ?? 0,
-      timestamp:
-          DateTime.tryParse(timestampRaw ?? '')?.toLocal() ?? DateTime.now(),
+      timestamp: timestamp,
       location: _firstString(data, const ['location', 'ubicacion']),
     );
   }
 
+  /// Variante segura para handlers FCM. Un payload sin fecha válida no debe
+  /// inventar una hora ni llegar a persistirse.
+  static NotificationItem? tryFromFcm(Map<String, dynamic> data) {
+    try {
+      return NotificationItem.fromFcm(data);
+    } on FormatException {
+      return null;
+    }
+  }
+
   /// Mapea la respuesta del endpoint `GET /api/notifications/sync`.
   factory NotificationItem.fromSyncApi(Map<String, dynamic> json) {
-    final backendId = json['id'] as int?;
+    final backendId = _parseInt(
+      _firstValue(json, const ['id', 'notification_id']),
+    );
     final type = json['type']?.toString() ?? 'attendance';
-    final event = json['event']?.toString() ?? 'check_in';
-    final studentName = json['student_name']?.toString() ?? 'Alumno';
-    final studentIdRaw =
-        json['student_id']?.toString() ?? json['teacher_id']?.toString() ?? '0';
-    final studentId = int.tryParse(studentIdRaw) ?? 0;
-    final timestamp =
-        DateTime.tryParse(json['timestamp']?.toString() ?? '')?.toLocal() ??
-        DateTime.now();
+    final eventRaw = _firstString(json, const [
+      'event',
+      'attendance_type',
+      'event_type',
+      'tipo',
+    ]);
+    final event = _normalizeEvent(eventRaw);
+    final studentName =
+        _firstString(json, const [
+          'person_name',
+          'student_name',
+          'studentName',
+          'nombre',
+          'name',
+        ]) ??
+        'Alumno';
+    final studentIdRaw = _firstString(json, const [
+      'student_id',
+      'studentId',
+      'teacher_id',
+      'teacherId',
+    ]);
+    final studentId = int.tryParse(studentIdRaw ?? '') ?? 0;
+    final timestampRaw = _firstString(json, const [
+      'recorded_at',
+      'timestamp',
+      'created_at',
+    ]);
+    final timestamp = _parseTimestamp(timestampRaw);
 
     return NotificationItem(
-      id: '${studentId}_${event}_${timestamp.toIso8601String()}',
+      id: _localId(
+        backendId: backendId,
+        personId: studentIdRaw,
+        event: eventRaw,
+        timestamp: timestampRaw,
+      ),
       backendId: backendId,
-      recipientUserId: int.tryParse(json['user_id']?.toString() ?? ''),
+      recipientUserId: _parseInt(
+        _firstValue(json, const ['user_id', 'userId']),
+      ),
       type: type,
       event: event,
       studentName: studentName,
       studentId: studentId,
       timestamp: timestamp,
     );
+  }
+
+  static dynamic _firstValue(Map<String, dynamic> data, List<String> keys) {
+    for (final key in keys) {
+      final value = data[key];
+      if (value != null && value.toString().isNotEmpty) return value;
+    }
+    return null;
   }
 
   static String? _firstString(Map<String, dynamic> data, List<String> keys) {
@@ -139,6 +190,32 @@ class NotificationItem {
       }
     }
     return null;
+  }
+
+  static int? _parseInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value?.toString() ?? '');
+  }
+
+  static DateTime _parseTimestamp(String? raw) {
+    final timestamp = DateTime.tryParse(raw ?? '')?.toLocal();
+    if (timestamp == null) {
+      throw const FormatException(
+        'Notification timestamp is missing or invalid',
+      );
+    }
+    return timestamp;
+  }
+
+  static String _localId({
+    required int? backendId,
+    required String? personId,
+    required String? event,
+    required String? timestamp,
+  }) {
+    if (backendId != null) return 'backend_$backendId';
+    return '${personId ?? '0'}_${event ?? 'check_in'}_$timestamp';
   }
 
   static String _normalizeEvent(String? raw) {
@@ -170,13 +247,13 @@ class NotificationItem {
   factory NotificationItem.fromJson(Map<String, dynamic> json) {
     return NotificationItem(
       id: json['id'] as String,
-      backendId: json['backendId'] as int?,
-      recipientUserId: json['recipientUserId'] as int?,
+      backendId: _parseInt(json['backendId']),
+      recipientUserId: _parseInt(json['recipientUserId']),
       type: json['type'] as String,
       event: json['event'] as String,
       studentName: json['studentName'] as String,
-      studentId: json['studentId'] as int,
-      timestamp: DateTime.parse(json['timestamp'] as String),
+      studentId: _parseInt(json['studentId']) ?? 0,
+      timestamp: DateTime.parse(json['timestamp'] as String).toLocal(),
       isRead: json['isRead'] as bool? ?? false,
       location: json['location'] as String?,
     );

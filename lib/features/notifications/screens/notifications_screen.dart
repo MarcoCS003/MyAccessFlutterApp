@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/theme.dart';
+import '../background/notification_sync_task.dart';
 import '../models/notification_item.dart';
 import '../providers/notification_provider.dart';
 
@@ -31,6 +32,25 @@ class NotificationsScreen extends ConsumerWidget {
         backgroundColor: AppTheme.primaryColor,
         elevation: 0,
         actions: [
+          IconButton(
+            tooltip: 'Sincronizar',
+            onPressed: () async {
+              final result = await syncNow();
+              if (!context.mounted) return;
+              await ref.read(notificationProvider.notifier).reloadFromLocal();
+              if (!context.mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    result.succeeded
+                        ? 'Notificaciones sincronizadas'
+                        : 'Sincronización completada con incidencias',
+                  ),
+                ),
+              );
+            },
+            icon: const Icon(Icons.sync_rounded),
+          ),
           if (unreadCount > 0)
             TextButton(
               onPressed: () =>

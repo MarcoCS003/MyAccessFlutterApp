@@ -123,10 +123,11 @@ void main() {
         'type': 'attendance',
       };
       await notifier.addFromFcm(data);
-      final isDuplicated = await notifier.addFromFcm(data);
+      final duplicated = await notifier.addFromFcm(data);
 
       expect(notifier.state.length, 1);
-      expect(isDuplicated, isFalse);
+      expect(duplicated.persisted, isTrue);
+      expect(duplicated.inserted, isFalse);
     });
 
     test('reloadFromLocal recupera items escritos directo en Hive', () async {

@@ -59,12 +59,19 @@ class NotificationNotifier extends StateNotifier<List<NotificationItem>> {
     debugPrint('[NOTIF] reloadFromLocal: ${state.length} items desde Hive');
   }
 
-  /// Devuelve true si la notificación era nueva (no duplicada por id).
-  Future<bool> addFromFcm(Map<String, dynamic> data) =>
-      addNotification(NotificationItem.fromFcm(data));
+  /// Persiste una notificación FCM. Un payload inválido se rechaza sin
+  /// actualizar el estado ni hacer que la UI lo considere nuevo.
+  Future<NotificationUpsertResult> addFromFcm(Map<String, dynamic> data) async {
+    final notification = NotificationItem.tryFromFcm(data);
+    if (notification == null) return const NotificationUpsertResult.failure();
+    return addNotification(notification);
+  }
 
-  /// Devuelve true si la notificación era nueva.
-  Future<bool> addNotification(NotificationItem notification) async {
+  /// Persiste una notificación y solo actualiza el estado después de que Hive
+  /// confirma la escritura.
+  Future<NotificationUpsertResult> addNotification(
+    NotificationItem notification,
+  ) async {
     // Sin sesión resuelta (p.ej. getInitialMessage antes de que
     // checkAuthStatus resuelva): persistir en el inbox resuelto para no
     // perder el mensaje, pero NO cargar en memoria el inbox completo de la
@@ -72,47 +79,66 @@ class NotificationNotifier extends StateNotifier<List<NotificationItem>> {
     if (_store == null) {
       final persisted = _writeStore.load();
       final isNew =
-          !persisted.any((n) => n.id == notification.id) &&
-          !state.any((n) => n.id == notification.id);
-      await _writeStore.upsert(notification);
-      state = NotificationLocalStore.dedupeAndSort([notification, ...state]);
-      return isNew;
+          !persisted.any(
+            (n) => NotificationLocalStore.isSameNotification(n, notification),
+          ) &&
+          !state.any(
+            (n) => NotificationLocalStore.isSameNotification(n, notification),
+          );
+      final merged = NotificationLocalStore.dedupeAndSort([
+        notification,
+        ...persisted,
+        ...state,
+      ]);
+      final saved = await _writeStore.saveAll(merged);
+      if (!saved) return const NotificationUpsertResult.failure();
+      state = merged;
+      return isNew
+          ? const NotificationUpsertResult.persistedInsert()
+          : const NotificationUpsertResult.persistedDuplicate();
     }
     // Merge con Hive antes de guardar: no pisa items escritos por el
     // isolate de background mientras la app estaba en segundo plano.
     final persisted = _store.load();
     final isNew =
-        !persisted.any((n) => n.id == notification.id) &&
-        !state.any((n) => n.id == notification.id);
-    state = NotificationLocalStore.dedupeAndSort([
+        !persisted.any(
+          (n) => NotificationLocalStore.isSameNotification(n, notification),
+        ) &&
+        !state.any(
+          (n) => NotificationLocalStore.isSameNotification(n, notification),
+        );
+    final merged = NotificationLocalStore.dedupeAndSort([
       notification,
       ...persisted,
       ...state,
     ]);
-    await _store.saveAll(state);
-    return isNew;
+    final saved = await _store.saveAll(merged);
+    if (!saved) return const NotificationUpsertResult.failure();
+    state = merged;
+    return isNew
+        ? const NotificationUpsertResult.persistedInsert()
+        : const NotificationUpsertResult.persistedDuplicate();
   }
 
   Future<void> markAsRead(String id) async {
-    state = state
+    final updated = state
         .map((n) => n.id == id ? n.copyWith(isRead: true) : n)
         .toList();
-    await _writeStore.saveAll(state);
+    if (await _writeStore.saveAll(updated)) state = updated;
   }
 
   Future<void> markAllAsRead() async {
-    state = state.map((n) => n.copyWith(isRead: true)).toList();
-    await _writeStore.saveAll(state);
+    final updated = state.map((n) => n.copyWith(isRead: true)).toList();
+    if (await _writeStore.saveAll(updated)) state = updated;
   }
 
   Future<void> dismiss(String id) async {
-    state = state.where((n) => n.id != id).toList();
-    await _writeStore.saveAll(state);
+    final updated = state.where((n) => n.id != id).toList();
+    if (await _writeStore.saveAll(updated)) state = updated;
   }
 
   Future<void> clearAll() async {
-    state = [];
-    await _writeStore.saveAll(state);
+    if (await _writeStore.saveAll(const [])) state = [];
   }
 
   int get unreadCount => state.where((n) => !n.isRead).length;

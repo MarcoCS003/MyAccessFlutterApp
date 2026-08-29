@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:io';
 
 import 'package:background_fetch/background_fetch.dart';
@@ -7,6 +6,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/utils/crash_report.dart';
+import '../../../core/utils/user_key.dart';
 import '../../auth/data/session_store.dart';
 import '../../../services/api_service.dart';
 import '../data/notification_local_store.dart';
@@ -14,12 +14,49 @@ import '../data/notification_sync_service.dart';
 
 const String _tag = '[BackgroundSync]';
 
+enum NotificationAccountSyncStatus {
+  success,
+  missingToken,
+  networkError,
+  unauthorized,
+  parseError,
+  serverError,
+  persistenceError,
+  ackError,
+}
+
+class NotificationAccountSyncResult {
+  const NotificationAccountSyncResult({
+    required this.status,
+    this.fetchedCount = 0,
+    this.insertedCount = 0,
+  });
+
+  final NotificationAccountSyncStatus status;
+  final int fetchedCount;
+  final int insertedCount;
+
+  bool get succeeded => status == NotificationAccountSyncStatus.success;
+}
+
+class NotificationSyncRunResult {
+  const NotificationSyncRunResult(this.accounts);
+
+  final Map<String, NotificationAccountSyncResult> accounts;
+
+  bool get succeeded =>
+      accounts.isNotEmpty &&
+      accounts.values.every((result) => result.succeeded);
+}
+
+typedef NotificationSyncServiceFactory =
+    NotificationSyncService Function(SavedSession session, String jwt);
+
 /// Callback ejecutado por WorkManager (Android) y background_fetch (iOS).
 ///
 /// Inicializa Hive, valida JWT y horario pico, descarga las notificaciones
 /// pendientes, las persiste localmente y confirma recepción al backend de
-/// forma best-effort. Nunca propaga excepciones para evitar crashes en
-/// background.
+/// forma durable. Nunca propaga excepciones para evitar crashes en background.
 @pragma('vm:entry-point')
 Future<void> notificationSyncTask(String taskId) async {
   try {
@@ -55,51 +92,93 @@ Future<void> maybeSyncOnAppOpen() async {
 }
 
 bool _shouldSyncOnOpen() {
-  final lastSyncRaw =
-      Hive.box(AppConstants.settingsBox).get('lastNotificationSyncAt')
-          as String?;
-  if (lastSyncRaw == null) return true;
-  final lastSync = DateTime.tryParse(lastSyncRaw);
-  if (lastSync == null) return true;
-  return DateTime.now().difference(lastSync).inHours >= 12;
+  final sessions = SessionStore().listSessions();
+  if (sessions.isEmpty) return false;
+  final settings = Hive.box(AppConstants.settingsBox);
+  return sessions.any((session) {
+    final lastSyncRaw = settings.get(_syncMarkerKey(session.userKey));
+    if (lastSyncRaw is! String) return true;
+    final lastSync = DateTime.tryParse(lastSyncRaw);
+    if (lastSync == null) return true;
+    return DateTime.now().difference(lastSync).inHours >= 12;
+  });
 }
 
-Future<void> _executeSync({required bool checkPeakHour}) async {
+Future<NotificationSyncRunResult> _executeSync({
+  required bool checkPeakHour,
+  SessionStore? sessionStore,
+  NotificationSyncServiceFactory? serviceFactory,
+}) async {
   if (checkPeakHour && _isPeakHour()) {
     debugPrint('$_tag peak hour, skipping sync');
-    return;
+    return const NotificationSyncRunResult({});
   }
 
-  final sessionStore = SessionStore();
-  final sessions = sessionStore.listSessions();
+  final store = sessionStore ?? SessionStore();
+  final sessions = store.listSessions();
   if (sessions.isEmpty) {
     debugPrint('$_tag no saved sessions, skipping sync');
-    return;
+    return const NotificationSyncRunResult({});
   }
 
+  final results = <String, NotificationAccountSyncResult>{};
   // Multi-sesión: cada cuenta guardada se sincroniza con su PROPIO JWT, así
   // los inboxes de todas las cuentas se mantienen al día aunque no sean la
   // sesión activa. Un fallo en una cuenta se loggea y no detiene a las demás.
   for (final session in sessions) {
     try {
-      final jwt = await sessionStore.getJwt(session.userKey);
+      final jwt = await store.getJwt(session.userKey);
       if (jwt == null || jwt.isEmpty) {
-        debugPrint('$_tag no JWT for ${session.userKey}, skipping account');
+        debugPrint('$_tag account has no JWT, skipping account');
+        results[session.userKey] = const NotificationAccountSyncResult(
+          status: NotificationAccountSyncStatus.missingToken,
+        );
         continue;
       }
-      await syncAccountNotifications(
+
+      final syncService =
+          serviceFactory?.call(session, jwt) ??
+          NotificationSyncService(api: ApiService(authToken: jwt));
+      final result = await syncAccountNotifications(
         session: session,
-        syncService: NotificationSyncService(api: ApiService(authToken: jwt)),
+        syncService: syncService,
       );
+      results[session.userKey] = result;
+      if (result.succeeded) {
+        try {
+          await Hive.box(AppConstants.settingsBox).put(
+            _syncMarkerKey(session.userKey),
+            DateTime.now().toIso8601String(),
+          );
+        } catch (e, st) {
+          crashRecordError(e, st);
+          results[session.userKey] = const NotificationAccountSyncResult(
+            status: NotificationAccountSyncStatus.persistenceError,
+          );
+        }
+      }
     } catch (e, stackTrace) {
-      debugPrint('$_tag sync error for ${session.userKey}: $e\n$stackTrace');
+      debugPrint('$_tag sync error for account: $e\n$stackTrace');
+      crashRecordError(e, stackTrace);
+      results[session.userKey] = const NotificationAccountSyncResult(
+        status: NotificationAccountSyncStatus.networkError,
+      );
     }
   }
 
-  await Hive.box(
-    AppConstants.settingsBox,
-  ).put('lastNotificationSyncAt', DateTime.now().toIso8601String());
+  return NotificationSyncRunResult(results);
 }
+
+/// Ejecuta inmediatamente el sync de todas las cuentas guardadas. Está
+/// expuesto para QA y pruebas, sin depender de WorkManager/background_fetch.
+Future<NotificationSyncRunResult> syncNow({
+  SessionStore? sessionStore,
+  NotificationSyncServiceFactory? serviceFactory,
+}) => _executeSync(
+  checkPeakHour: false,
+  sessionStore: sessionStore,
+  serviceFactory: serviceFactory,
+);
 
 /// Sincroniza las notificaciones pendientes de UNA cuenta.
 ///
@@ -107,11 +186,32 @@ Future<void> _executeSync({required bool checkPeakHour}) async {
 /// JWT usado, así que todo se guarda en el inbox de [session]. Si un item
 /// trae `user_id` y no coincide con la cuenta (inconsistencia del backend),
 /// se descarta y NO se hace ACK de él. Expuesta para pruebas unitarias.
-Future<void> syncAccountNotifications({
+Future<NotificationAccountSyncResult> syncAccountNotifications({
   required SavedSession session,
   required NotificationSyncService syncService,
 }) async {
-  final notifications = await syncService.fetchPending();
+  var status = NotificationAccountSyncStatus.success;
+  var ackFailed = false;
+  var persistenceFailed = false;
+  final retriedAckIds = <int>{};
+
+  final pendingAcks = _loadPendingAcks(session.userKey);
+  for (final backendId in pendingAcks) {
+    retriedAckIds.add(backendId);
+    if (!await ackNotificationForAccount(
+      userKey: session.userKey,
+      backendId: backendId,
+      syncService: syncService,
+    )) {
+      ackFailed = true;
+    }
+  }
+
+  final fetchResult = await syncService.fetchPending();
+  if (fetchResult.failure != null) {
+    status = _statusForFailure(fetchResult.failure!);
+  }
+  final notifications = fetchResult.notifications;
   debugPrint(
     '$_tag fetched ${notifications.length} pending for ${session.userKey}',
   );
@@ -128,24 +228,109 @@ Future<void> syncAccountNotifications({
         );
         continue;
       }
-      final inserted = await store.upsert(notification);
-      if (inserted) insertedCount++;
+      final persistence = await store.upsert(notification);
+      if (!persistence.persisted) {
+        persistenceFailed = true;
+        continue;
+      }
+      if (persistence.inserted) insertedCount++;
 
-      // ACK best-effort después de persistir, con el JWT de esta cuenta.
       final backendId = notification.backendId;
-      if (backendId != null) {
-        unawaited(
-          syncService.ack(backendId).catchError((Object e) {
-            debugPrint('$_tag ACK error for $backendId: $e');
-            return Future<void>.value();
-          }),
+      if (backendId != null && !retriedAckIds.contains(backendId)) {
+        final acked = await ackNotificationForAccount(
+          userKey: session.userKey,
+          backendId: backendId,
+          syncService: syncService,
         );
+        if (!acked) ackFailed = true;
       }
     } catch (e, stackTrace) {
       debugPrint('$_tag upsert error for ${notification.id}: $e\n$stackTrace');
+      crashRecordError(e, stackTrace);
+      persistenceFailed = true;
     }
   }
   crashLog('notif_sync: inserted=$insertedCount');
+
+  if (persistenceFailed) {
+    status = NotificationAccountSyncStatus.persistenceError;
+  }
+  if (ackFailed) {
+    status = NotificationAccountSyncStatus.ackError;
+  }
+  return NotificationAccountSyncResult(
+    status: status,
+    fetchedCount: notifications.length,
+    insertedCount: insertedCount,
+  );
+}
+
+/// Envía un ACK con el servicio autenticado de la cuenta propietaria. Si
+/// falla, conserva el id en settings para reintentarlo en el siguiente sync.
+Future<bool> ackNotificationForAccount({
+  required String userKey,
+  required int backendId,
+  required NotificationSyncService syncService,
+}) async {
+  final result = await syncService.ack(backendId);
+  final pending = _loadPendingAcks(userKey);
+  if (result.succeeded) {
+    pending.remove(backendId);
+    await _savePendingAcks(userKey, pending);
+    return true;
+  }
+
+  if (!pending.contains(backendId)) pending.add(backendId);
+  await _savePendingAcks(userKey, pending);
+  return false;
+}
+
+NotificationAccountSyncStatus _statusForFailure(
+  NotificationSyncFailure failure,
+) {
+  switch (failure.kind) {
+    case NotificationSyncFailureKind.network:
+      return NotificationAccountSyncStatus.networkError;
+    case NotificationSyncFailureKind.unauthorized:
+      return NotificationAccountSyncStatus.unauthorized;
+    case NotificationSyncFailureKind.parse:
+      return NotificationAccountSyncStatus.parseError;
+    case NotificationSyncFailureKind.server:
+      return NotificationAccountSyncStatus.serverError;
+  }
+}
+
+String _syncMarkerKey(String userKey) =>
+    'lastNotificationSyncAt_${userStorageKey(userKey)}';
+
+String _ackQueueKey(String userKey) =>
+    'pendingNotificationAcks_${userStorageKey(userKey)}';
+
+List<int> _loadPendingAcks(String userKey) {
+  try {
+    final raw = Hive.box(AppConstants.settingsBox).get(_ackQueueKey(userKey));
+    if (raw is! List) return [];
+    return raw
+        .map((value) => int.tryParse(value.toString()))
+        .whereType<int>()
+        .toSet()
+        .toList();
+  } catch (e, st) {
+    debugPrint('$_tag could not load ACK queue: $e');
+    crashRecordError(e, st);
+    return [];
+  }
+}
+
+Future<bool> _savePendingAcks(String userKey, List<int> ids) async {
+  try {
+    await Hive.box(AppConstants.settingsBox).put(_ackQueueKey(userKey), ids);
+    return true;
+  } catch (e, st) {
+    debugPrint('$_tag could not save ACK queue: $e');
+    crashRecordError(e, st);
+    return false;
+  }
 }
 
 Future<void> _initHive() async {
