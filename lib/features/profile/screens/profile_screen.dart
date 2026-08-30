@@ -4,8 +4,13 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/theme.dart';
+import '../../../core/utils/user_key.dart';
+import '../../../services/api_service.dart';
 import '../../auth/data/session_store.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../notifications/background/notification_sync_task.dart';
+import '../../notifications/data/notification_sync_service.dart';
+import '../../notifications/providers/notification_provider.dart';
 import '../providers/profile_provider.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -18,6 +23,13 @@ class ProfileScreen extends ConsumerStatefulWidget {
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   /// userKey de la cuenta que se está activando (muestra spinner en el tile).
   String? _switchingKey;
+
+  /// QA: poner en true para mostrar el botón "Probar sincronización"
+  /// (ejecuta el diff de la cuenta activa, ver [_runSyncTest]).
+  static bool showSyncTestTile = false;
+
+  /// true mientras corre la prueba de sync (muestra spinner en el tile QA).
+  bool _syncTesting = false;
 
   @override
   Widget build(BuildContext context) {
@@ -209,6 +221,49 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ref.read(profileProvider.notifier).toggleNotifications(val),
               ),
 
+              if (showSyncTestTile)
+                ListTile(
+                  leading: Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: AppTheme.accentColor.withValues(alpha: 0.10),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      Icons.science_rounded,
+                      color: AppTheme.accentColor,
+                      size: 20,
+                    ),
+                  ),
+                  title: Text(
+                    'Probar sincronización',
+                    style: GoogleFonts.inter(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      color: AppTheme.textPrimaryColor,
+                    ),
+                  ),
+                  subtitle: Text(
+                    'Ejecuta ahora el diff de esta cuenta (QA)',
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      color: AppTheme.textSecondaryColor,
+                    ),
+                  ),
+                  trailing: _syncTesting
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(
+                          Icons.chevron_right_rounded,
+                          color: AppTheme.textSecondaryColor,
+                        ),
+                  onTap: _syncTesting ? null : _runSyncTest,
+                ),
+
               const Divider(
                 height: 24,
                 indent: 20,
@@ -349,6 +404,43 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             ),
       onTap: isActive || isSwitching ? null : () => _switchAccount(session),
     );
+  }
+
+  /// Ejecuta el diff del sync v2 SOLO para la cuenta activa (QA). Omite las
+  /// ventanas y el slot del scheduler automático.
+  Future<void> _runSyncTest() async {
+    final user = ref.read(authProvider).user;
+    if (user == null) return;
+    setState(() => _syncTesting = true);
+    try {
+      final store = SessionStore();
+      final userKey = userStorageKey(user.email);
+      final jwt = await store.getJwt(userKey);
+      if (!mounted) return;
+      if (jwt == null || jwt.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Esta cuenta no tiene JWT guardado')),
+        );
+        return;
+      }
+
+      final result = await syncAccountNotifications(
+        session: SavedSession(userKey: userKey, user: user),
+        syncService: NotificationSyncService(api: ApiService(authToken: jwt)),
+      );
+      await ref.read(notificationProvider.notifier).reloadFromLocal();
+      if (!mounted) return;
+
+      final message = result.succeeded
+          ? 'Sync OK: ${result.insertedCount} nuevas de '
+                '${result.fetchedCount} faltantes'
+          : 'Sync falló: ${result.status.name}';
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+    } finally {
+      if (mounted) setState(() => _syncTesting = false);
+    }
   }
 
   Future<void> _switchAccount(SavedSession session) async {

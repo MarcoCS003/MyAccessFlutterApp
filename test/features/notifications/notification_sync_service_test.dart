@@ -16,106 +16,102 @@ void main() {
       syncService = NotificationSyncService(api: mockApi);
     });
 
-    test(
-      'fetchPending devuelve lista vacía cuando el backend no tiene pendientes',
-      () async {
-        when(
-          () => mockApi.get<Map<String, dynamic>>('/notifications/sync'),
-        ).thenAnswer((_) async => {'notifications': <dynamic>[]});
-
-        final result = await syncService.fetchPending();
-
-        expect(result.succeeded, isTrue);
-        expect(result.notifications, isEmpty);
-      },
-    );
-
-    test('fetchPending mapea notificaciones pendientes del backend', () async {
+    test('fetchDiff envía los IDs locales al endpoint de diff', () async {
       when(
-        () => mockApi.get<Map<String, dynamic>>('/notifications/sync'),
+        () => mockApi.post<Map<String, dynamic>>(
+          '/notifications/diff',
+          data: any(named: 'data'),
+        ),
+      ).thenAnswer((_) async => {'window_size': 10, 'missing': <dynamic>[]});
+
+      final result = await syncService.fetchDiff([1042, 1041, 1039]);
+
+      expect(result.succeeded, isTrue);
+      expect(result.notifications, isEmpty);
+      verify(
+        () => mockApi.post<Map<String, dynamic>>(
+          '/notifications/diff',
+          data: {
+            'local_ids': [1042, 1041, 1039],
+          },
+        ),
+      ).called(1);
+    });
+
+    test('fetchDiff mapea los registros faltantes del backend', () async {
+      when(
+        () => mockApi.post<Map<String, dynamic>>(
+          '/notifications/diff',
+          data: any(named: 'data'),
+        ),
       ).thenAnswer(
         (_) async => {
-          'notifications': [
+          'window_size': 10,
+          'missing': [
             {
-              'id': 456,
-              'user_id': 10,
+              'id': 1043,
+              'user_id': 42,
               'type': 'attendance',
               'event': 'entry',
               'student_id': 10,
-              'person_name': 'Pedrito Perez',
-              'recorded_at': '2026-08-01T07:30:00-06:00',
+              'teacher_id': null,
+              'person_name': 'Juan Pérez',
+              'title': 'Entrada de Juan Pérez',
+              'body': 'Juan Pérez registró Entrada a las 07:55',
+              'recorded_at': '2026-08-29T07:55:12-06:00',
             },
           ],
         },
       );
 
-      final result = await syncService.fetchPending();
+      final result = await syncService.fetchDiff([1042]);
 
       expect(result.succeeded, isTrue);
       expect(result.notifications.length, 1);
-      expect(result.notifications.first.backendId, 456);
-      expect(result.notifications.first.recipientUserId, 10);
-      expect(result.notifications.first.studentName, 'Pedrito Perez');
+      expect(result.notifications.first.backendId, 1043);
+      expect(result.notifications.first.recipientUserId, 42);
+      expect(result.notifications.first.studentName, 'Juan Pérez');
       expect(result.notifications.first.event, 'check_in');
       expect(result.notifications.first.studentId, 10);
     });
 
-    test(
-      'fetchPending informa error de parseo sin clave notifications',
-      () async {
-        when(
-          () => mockApi.get<Map<String, dynamic>>('/notifications/sync'),
-        ).thenAnswer((_) async => {'unexpected': 'value'});
-
-        final result = await syncService.fetchPending();
-
-        expect(result.succeeded, isFalse);
-        expect(result.failure?.kind, NotificationSyncFailureKind.parse);
-      },
-    );
-
-    test(
-      'fetchPending informa error de red sin propagar excepciones',
-      () async {
-        when(
-          () => mockApi.get<Map<String, dynamic>>('/notifications/sync'),
-        ).thenThrow(Exception('network error'));
-
-        final result = await syncService.fetchPending();
-
-        expect(result.notifications, isEmpty);
-        expect(result.failure?.kind, NotificationSyncFailureKind.network);
-      },
-    );
-
-    test('ack envía POST al endpoint correcto', () async {
+    test('fetchDiff informa error de parseo sin clave missing', () async {
       when(
-        () => mockApi.post<dynamic>('/notifications/ack/456'),
-      ).thenAnswer((_) async => null);
+        () => mockApi.post<Map<String, dynamic>>(
+          '/notifications/diff',
+          data: any(named: 'data'),
+        ),
+      ).thenAnswer((_) async => {'unexpected': 'value'});
 
-      final result = await syncService.ack(456);
-
-      expect(result.succeeded, isTrue);
-      verify(() => mockApi.post<dynamic>('/notifications/ack/456')).called(1);
-    });
-
-    test('ack informa error sin propagar excepciones', () async {
-      when(
-        () => mockApi.post<dynamic>('/notifications/ack/456'),
-      ).thenThrow(Exception('network error'));
-
-      final result = await syncService.ack(456);
+      final result = await syncService.fetchDiff([]);
 
       expect(result.succeeded, isFalse);
+      expect(result.failure?.kind, NotificationSyncFailureKind.parse);
+    });
+
+    test('fetchDiff informa error de red sin propagar excepciones', () async {
+      when(
+        () => mockApi.post<Map<String, dynamic>>(
+          '/notifications/diff',
+          data: any(named: 'data'),
+        ),
+      ).thenThrow(Exception('network error'));
+
+      final result = await syncService.fetchDiff([1, 2]);
+
+      expect(result.notifications, isEmpty);
       expect(result.failure?.kind, NotificationSyncFailureKind.network);
     });
 
     test('clasifica un 401 como no autorizado', () async {
       when(
-        () => mockApi.get<Map<String, dynamic>>('/notifications/sync'),
+        () => mockApi.post<Map<String, dynamic>>(
+          '/notifications/diff',
+          data: any(named: 'data'),
+        ),
       ).thenThrow(const ServerFailure('No autorizado', statusCode: 401));
 
-      final result = await syncService.fetchPending();
+      final result = await syncService.fetchDiff([]);
 
       expect(result.failure?.kind, NotificationSyncFailureKind.unauthorized);
     });

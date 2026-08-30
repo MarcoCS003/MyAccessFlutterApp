@@ -20,41 +20,12 @@ import 'features/auth/providers/auth_provider.dart';
 import 'features/notifications/background/background_sync_register.dart';
 import 'features/notifications/background/notification_sync_task.dart';
 import 'features/notifications/data/notification_local_store.dart';
-import 'features/notifications/data/notification_sync_service.dart';
 import 'features/notifications/models/notification_item.dart';
 import 'features/notifications/providers/notification_provider.dart';
 import 'firebase_options.dart';
-import 'services/api_service.dart';
 import 'services/local_notifications_service.dart';
 
 final _localNotifications = LocalNotificationsService();
-
-/// ACK autenticado con el JWT de la cuenta DUEÑA de la
-/// notificación (no necesariamente la sesión activa). Si esa cuenta no
-/// tiene JWT guardado, se omite el ACK. Si falla, el id queda en la cola local
-/// de reintento de esa cuenta.
-Future<void> _ackForOwner(
-  Map<String, dynamic> data,
-  String ownerKey, {
-  String tag = '[FCM]',
-}) async {
-  try {
-    final rawId = data['notification_id'] ?? data['id'];
-    final backendId = int.tryParse(rawId?.toString() ?? '');
-    if (backendId == null) return;
-
-    final jwt = await SessionStore().getJwt(ownerKey);
-    if (jwt == null || jwt.isEmpty) return;
-    final acked = await ackNotificationForAccount(
-      userKey: ownerKey,
-      backendId: backendId,
-      syncService: NotificationSyncService(api: ApiService(authToken: jwt)),
-    );
-    if (!acked) debugPrint('$tag ACK queued for account');
-  } catch (e) {
-    debugPrint('$tag ACK setup error: $e');
-  }
-}
 
 /// Resuelve la cuenta dueña de la notificación. null = descartar (el
 /// usuario destinatario no tiene sesión en este dispositivo).
@@ -107,9 +78,6 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
       await service.init();
       await service.showAttendance(notification);
     }
-
-    // ACK best-effort con el JWT de la cuenta dueña.
-    await _ackForOwner(message.data, targetKey, tag: '[FCM][BG]');
   } catch (e, st) {
     // El handler corre en un isolate de background: cualquier fallo se
     // reporta a Crashlytics y nunca se propaga.
@@ -150,12 +118,12 @@ Future<void> main() async {
       await Hive.openBox(AppConstants.notificationsBox);
       await Hive.openBox(AppConstants.settingsBox);
 
-      // Registrar tarea periódica de sincronización de notificaciones pendientes.
-      await registerBackgroundSync();
+      // Programar el one-off de la próxima ventana de sync (9–10 / 15–16).
+      await scheduleNextSyncWindow();
 
-      // Sync de respaldo al abrir la app si la última sincronización fue hace
-      // más de 12 horas. Es especialmente útil en iOS donde background_fetch no
-      // garantiza ejecución periódica.
+      // Sync de respaldo al abrir la app si la ventana actual/pasada aún no
+      // tiene marcador (Doze, iOS sin fetch). No corre en horas pico a menos
+      // que una ventana haya quedado descubierta.
       unawaited(maybeSyncOnAppOpen());
 
       // Datos de locale para los DateFormat con 'es' (detalle del alumno).
@@ -241,14 +209,10 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
       final notification = NotificationItem.tryFromFcm(message.data);
       if (notification == null) return;
       final persistence = await _persistRouted(notification);
-      // Descartada (usuario sin sesión aquí): sin bandeja ni ACK.
+      // Descartada (usuario sin sesión aquí): sin bandeja.
       if (persistence == null || !persistence.persisted) return;
       if (persistence.inserted) {
         await _localNotifications.showAttendance(notification);
-      }
-      final ownerKey = _routeNotification(notification);
-      if (ownerKey != null) {
-        await _ackForOwner(message.data, ownerKey, tag: '[FCM][FG]');
       }
     });
 
@@ -259,13 +223,7 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
       crashLog('fcm_received: type=${message.data['type']}');
       final notification = NotificationItem.tryFromFcm(message.data);
       if (notification == null) return;
-      final persistence = await _persistRouted(notification);
-      if (persistence != null && persistence.persisted) {
-        final ownerKey = _routeNotification(notification);
-        if (ownerKey != null) {
-          await _ackForOwner(message.data, ownerKey, tag: '[FCM][TAP]');
-        }
-      }
+      await _persistRouted(notification);
       _navigateToNotifications();
     });
 
@@ -276,13 +234,7 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
         crashLog('fcm_received: type=${message.data['type']}');
         final notification = NotificationItem.tryFromFcm(message.data);
         if (notification == null) return;
-        final persistence = await _persistRouted(notification);
-        if (persistence != null && persistence.persisted) {
-          final ownerKey = _routeNotification(notification);
-          if (ownerKey != null) {
-            await _ackForOwner(message.data, ownerKey, tag: '[FCM][INITIAL]');
-          }
-        }
+        await _persistRouted(notification);
         _navigateToNotifications();
       }
     });

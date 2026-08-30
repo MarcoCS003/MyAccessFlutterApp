@@ -41,35 +41,26 @@ class NotificationSyncFetchResult {
   bool get succeeded => failure == null;
 }
 
-class NotificationSyncAckResult {
-  const NotificationSyncAckResult({this.failure});
-
-  const NotificationSyncAckResult.success() : this();
-
-  const NotificationSyncAckResult.failed(NotificationSyncFailure failure)
-    : this(failure: failure);
-
-  final NotificationSyncFailure? failure;
-
-  bool get succeeded => failure == null;
-}
-
-/// Servicio para sincronizar notificaciones pendientes con el backend.
+/// Servicio para reconciliar notificaciones con el backend (sync v2).
 ///
-/// Los métodos devuelven el tipo de fallo para que el caller pueda decidir si
-/// actualiza el marcador de sync o conserva el trabajo para reintento.
+/// El cliente envía los IDs locales que ya tiene guardados y el backend
+/// devuelve solo los registros faltantes. Los métodos devuelven el tipo de
+/// fallo para que el caller decida si marca la ventana como sincronizada o
+/// reintenta en la siguiente.
 class NotificationSyncService {
   final ApiService _api;
 
   NotificationSyncService({ApiService? api}) : _api = api ?? ApiService();
 
-  /// Obtiene las notificaciones pendientes del endpoint de sincronización.
-  Future<NotificationSyncFetchResult> fetchPending() async {
+  /// Pide al backend los registros que faltan comparando [localIds] (los más
+  /// recientes de la cuenta, máximo 10) contra los últimos 10 del usuario.
+  Future<NotificationSyncFetchResult> fetchDiff(List<int> localIds) async {
     try {
-      final response = await _api.get<Map<String, dynamic>>(
-        '/notifications/sync',
+      final response = await _api.post<Map<String, dynamic>>(
+        '/notifications/diff',
+        data: {'local_ids': localIds},
       );
-      final list = response['notifications'];
+      final list = response['missing'];
       if (list is! List) {
         return const NotificationSyncFetchResult.failed(
           NotificationSyncFailure(NotificationSyncFailureKind.parse),
@@ -99,19 +90,8 @@ class NotificationSyncService {
         invalidItems: invalidItems,
       );
     } catch (e) {
-      debugPrint('[NotificationSyncService] fetchPending error: $e');
+      debugPrint('[NotificationSyncService] fetchDiff error: $e');
       return NotificationSyncFetchResult.failed(_classifyFailure(e));
-    }
-  }
-
-  /// Marca una notificación como confirmada en el backend.
-  Future<NotificationSyncAckResult> ack(int backendId) async {
-    try {
-      await _api.post<dynamic>('/notifications/ack/$backendId');
-      return const NotificationSyncAckResult.success();
-    } catch (e) {
-      debugPrint('[NotificationSyncService] ack($backendId) error: $e');
-      return NotificationSyncAckResult.failed(_classifyFailure(e));
     }
   }
 
