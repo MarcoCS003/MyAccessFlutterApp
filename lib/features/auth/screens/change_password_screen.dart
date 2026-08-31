@@ -6,29 +6,35 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/theme.dart';
 import '../../../core/validators/password_validators.dart';
-import '../providers/password_recovery_provider.dart';
+import '../providers/auth_provider.dart';
 
-class ResetPasswordScreen extends ConsumerStatefulWidget {
-  final String email;
-
-  const ResetPasswordScreen({super.key, required this.email});
+/// Pantalla de cambio de contraseña forzado. El router bloquea cualquier
+/// otra ruta mientras `user.mustChangePassword` sea true, así que esta es
+/// la única pantalla alcanzable hasta completar el cambio (o cerrar sesión).
+class ChangePasswordScreen extends ConsumerStatefulWidget {
+  const ChangePasswordScreen({super.key});
 
   @override
-  ConsumerState<ResetPasswordScreen> createState() =>
-      _ResetPasswordScreenState();
+  ConsumerState<ChangePasswordScreen> createState() =>
+      _ChangePasswordScreenState();
 }
 
-class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
-  final _codeController = TextEditingController();
+class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
+  final _currentPasswordController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+  bool _obscureCurrentPassword = true;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
 
+  // Loading local: changePassword no cambia el status de auth (ver
+  // AuthNotifier.changePassword), así que el spinner vive en la pantalla.
+  bool _isSubmitting = false;
+
   @override
   void dispose() {
-    _codeController.dispose();
+    _currentPasswordController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
@@ -36,61 +42,38 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    final success = await ref
-        .read(passwordRecoveryProvider.notifier)
-        .resetPassword(
-          email: widget.email,
-          token: _codeController.text.trim(),
-          password: _passwordController.text,
-          passwordConfirmation: _confirmPasswordController.text,
+    setState(() => _isSubmitting = true);
+    await ref
+        .read(authProvider.notifier)
+        .changePassword(
+          currentPassword: _currentPasswordController.text,
+          newPassword: _passwordController.text,
+          confirmation: _confirmPasswordController.text,
         );
-    if (success && mounted) {
-      final message =
-          ref.read(passwordRecoveryProvider).successMessage ??
-          'Contraseña restablecida exitosamente.';
-      await showDialog<void>(
-        context: context,
-        barrierDismissible: false,
-        builder: (dialogContext) => AlertDialog(
-          title: Text(
-            'Contraseña actualizada',
-            style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
-          ),
-          content: Text(message, style: GoogleFonts.inter()),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Aceptar'),
-            ),
-          ],
-        ),
-      );
-      if (mounted) {
-        ref.read(passwordRecoveryProvider.notifier).reset();
-        context.go('/login');
-      }
+    if (!mounted) return;
+    setState(() => _isSubmitting = false);
+    final authState = ref.read(authProvider);
+    if (authState.user?.mustChangePassword == false) {
+      context.go('/home');
     }
   }
 
-  void _goToForgotPassword() {
-    ref.read(passwordRecoveryProvider.notifier).reset();
-    context.go('/forgot-password');
+  Future<void> _signOut() async {
+    await ref.read(authProvider.notifier).signOut();
   }
 
   @override
   Widget build(BuildContext context) {
-    final recoveryState = ref.watch(passwordRecoveryProvider);
+    final authState = ref.watch(authProvider);
     final size = MediaQuery.of(context).size;
     final topPadding = MediaQuery.of(context).padding.top;
     final bottomPadding = MediaQuery.of(context).padding.bottom;
 
-    final headerHeight = size.height * 0.30;
-    final cardMinHeight = (size.height * 0.70) + 24;
+    final headerHeight = size.height * 0.35;
+    final cardMinHeight = (size.height * 0.65) + 24;
 
-    final codeError =
-        recoveryState.fieldErrors['email'] ??
-        recoveryState.fieldErrors['token'];
-    final passwordError = recoveryState.fieldErrors['password'];
+    final currentPasswordError = authState.fieldErrors['current_password'];
+    final passwordError = authState.fieldErrors['password'];
 
     return Scaffold(
       backgroundColor: AppTheme.bgLightColor,
@@ -132,19 +115,28 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                             ),
                           ),
                           child: const Icon(
-                            Icons.password_rounded,
-                            size: 48,
+                            Icons.lock_reset_rounded,
+                            size: 56,
                             color: Colors.white,
                           ),
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 16),
                         Text(
                           'Instituto Juárez Lincoln',
                           style: GoogleFonts.outfit(
-                            fontSize: 24,
+                            fontSize: 26,
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
                             letterSpacing: 0.5,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Control de Acceso Escolar',
+                          style: GoogleFonts.inter(
+                            fontSize: 14,
+                            color: Colors.white.withValues(alpha: 0.8),
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
                       ],
@@ -178,7 +170,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           Text(
-                            'Restablecer contraseña',
+                            'Cambia tu contraseña',
                             textAlign: TextAlign.center,
                             style: GoogleFonts.outfit(
                               fontSize: 24,
@@ -188,7 +180,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                           ),
                           const SizedBox(height: 12),
                           Text(
-                            'Revisa tu correo e ingresa el código que recibiste junto con tu nueva contraseña.',
+                            'Por seguridad, cambia tu contraseña antes de continuar.',
                             textAlign: TextAlign.center,
                             style: GoogleFonts.inter(
                               fontSize: 14,
@@ -203,41 +195,34 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
                                 TextFormField(
-                                  initialValue: widget.email,
-                                  readOnly: true,
-                                  enabled: false,
-                                  decoration: InputDecoration(
-                                    labelText: 'Correo electrónico',
-                                    prefixIcon: const Icon(
-                                      Icons.email_outlined,
-                                    ),
-                                    filled: true,
-                                    fillColor: AppTheme.borderLightColor
-                                        .withValues(alpha: 0.3),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 16),
-                                TextFormField(
-                                  controller: _codeController,
-                                  keyboardType: TextInputType.text,
+                                  controller: _currentPasswordController,
+                                  obscureText: _obscureCurrentPassword,
                                   textInputAction: TextInputAction.next,
-                                  enabled: !recoveryState.isLoading,
-                                  autocorrect: false,
+                                  enabled: !_isSubmitting,
                                   decoration: InputDecoration(
-                                    labelText: 'Código de recuperación',
-                                    hintText: 'Pega el código de tu correo',
-                                    prefixIcon: const Icon(Icons.pin_outlined),
-                                    errorText: codeError,
+                                    labelText: 'Contraseña actual',
+                                    prefixIcon: const Icon(Icons.lock_outline),
+                                    suffixIcon: IconButton(
+                                      icon: Icon(
+                                        _obscureCurrentPassword
+                                            ? Icons.visibility_off
+                                            : Icons.visibility,
+                                      ),
+                                      onPressed: () {
+                                        setState(() {
+                                          _obscureCurrentPassword =
+                                              !_obscureCurrentPassword;
+                                        });
+                                      },
+                                    ),
+                                    errorText: currentPasswordError,
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(12),
                                     ),
                                   ),
                                   validator: (value) {
-                                    if (value == null || value.trim().isEmpty) {
-                                      return 'Ingresa el código';
+                                    if (value == null || value.isEmpty) {
+                                      return 'Ingresa tu contraseña actual';
                                     }
                                     return null;
                                   },
@@ -247,7 +232,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                                   controller: _passwordController,
                                   obscureText: _obscurePassword,
                                   textInputAction: TextInputAction.next,
-                                  enabled: !recoveryState.isLoading,
+                                  enabled: !_isSubmitting,
                                   decoration: InputDecoration(
                                     labelText: 'Nueva contraseña',
                                     helperText:
@@ -278,7 +263,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                                   controller: _confirmPasswordController,
                                   obscureText: _obscureConfirmPassword,
                                   textInputAction: TextInputAction.done,
-                                  enabled: !recoveryState.isLoading,
+                                  enabled: !_isSubmitting,
                                   decoration: InputDecoration(
                                     labelText: 'Confirmar contraseña',
                                     prefixIcon: const Icon(Icons.lock_outline),
@@ -314,9 +299,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                                 SizedBox(
                                   height: 54,
                                   child: ElevatedButton(
-                                    onPressed: recoveryState.isLoading
-                                        ? null
-                                        : _submit,
+                                    onPressed: _isSubmitting ? null : _submit,
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: AppTheme.primaryColor,
                                       foregroundColor: Colors.white,
@@ -328,7 +311,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
-                                    child: recoveryState.isLoading
+                                    child: _isSubmitting
                                         ? const SizedBox(
                                             height: 22,
                                             width: 22,
@@ -337,18 +320,16 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                                               color: Colors.white,
                                             ),
                                           )
-                                        : const Text('Restablecer contraseña'),
+                                        : const Text('Cambiar contraseña'),
                                   ),
                                 ),
                               ],
                             ),
                           ),
-                          if (recoveryState.errorMessage != null &&
-                              codeError == null &&
-                              passwordError == null) ...[
+                          if (authState.errorMessage != null) ...[
                             const SizedBox(height: 16),
                             Text(
-                              recoveryState.errorMessage!,
+                              authState.errorMessage!,
                               textAlign: TextAlign.center,
                               style: GoogleFonts.inter(
                                 fontSize: 13,
@@ -358,37 +339,25 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                             ),
                           ],
                           const SizedBox(height: 24),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                '¿Código inválido o expirado? ',
-                                style: GoogleFonts.inter(
-                                  fontSize: 14,
-                                  color: AppTheme.textSecondaryColor,
+                          Center(
+                            child: InkWell(
+                              onTap: _isSubmitting ? null : _signOut,
+                              borderRadius: BorderRadius.circular(4),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 4,
+                                  vertical: 4,
                                 ),
-                              ),
-                              InkWell(
-                                onTap: recoveryState.isLoading
-                                    ? null
-                                    : _goToForgotPassword,
-                                borderRadius: BorderRadius.circular(4),
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 4,
-                                    vertical: 4,
-                                  ),
-                                  child: Text(
-                                    'Solicitar nuevo código',
-                                    style: GoogleFonts.inter(
-                                      fontSize: 14,
-                                      color: const Color(0xFF1B3A6B),
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                                child: Text(
+                                  'Cerrar sesión',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 14,
+                                    color: const Color(0xFF1B3A6B),
+                                    fontWeight: FontWeight.w600,
                                   ),
                                 ),
                               ),
-                            ],
+                            ),
                           ),
                         ],
                       ),

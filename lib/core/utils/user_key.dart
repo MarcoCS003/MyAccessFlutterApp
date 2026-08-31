@@ -7,6 +7,7 @@ library;
 import 'package:hive_flutter/hive_flutter.dart';
 
 import '../constants/app_constants.dart';
+import '../../features/auth/models/user.dart';
 
 /// userKey de respaldo para mensajes FCM que llegan sin sesión guardada:
 /// se persisten en un inbox global fijo (`items__anonymous`) que la UI
@@ -67,7 +68,8 @@ String? resolveUserKeyForNotification({
 
   if (type == 'teacher_attendance') {
     for (final entry in sessions.entries) {
-      if (entry.value['role'] == 'teacher') return entry.key;
+      final role = entry.value['role'];
+      if (role is String && staffRoles.contains(role)) return entry.key;
     }
     return anonymousUserKey;
   }

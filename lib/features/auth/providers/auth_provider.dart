@@ -139,6 +139,72 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
+  /// Cambio de contraseña del usuario autenticado (flujo de cambio forzado
+  /// de maestros). El JWT no cambia: solo se actualiza el user persistido
+  /// (sesión activa + SessionStore) con mustChangePassword ya apagado.
+  ///
+  /// A diferencia de login/registro, los errores NO cambian el status:
+  /// la sesión sigue activa y el guard del router debe mantener al usuario
+  /// en /change-password (un 422 de validación no es un logout).
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+    required String confirmation,
+  }) async {
+    try {
+      crashLog('change_password_attempt');
+
+      final response =
+          await _apiService.post(
+                '/auth/change-password',
+                data: {
+                  'current_password': currentPassword,
+                  'password': newPassword,
+                  'password_confirmation': confirmation,
+                },
+              )
+              as Map<String, dynamic>;
+
+      final user = User.fromJson(response['user'] as Map<String, dynamic>);
+
+      final token = await _secureStorage.read(key: AppConstants.jwtTokenKey);
+      final box = Hive.box(AppConstants.authBox);
+      await box.put('user', user.toJson());
+      if (token != null && token.isNotEmpty) {
+        await _sessionStore.saveSession(user: user, jwt: token);
+      }
+
+      state = AuthState(status: AuthStatus.authenticated, user: user);
+    } on ServerFailure catch (e) {
+      debugPrint(
+        'changePassword error ${e.statusCode}: ${e.message} '
+        '| fieldErrors: ${e.fieldErrors}',
+      );
+      final fieldErrors = e.fieldErrors?.map(
+        (key, value) => MapEntry(key, value.first),
+      );
+      state = AuthState(
+        status: AuthStatus.authenticated,
+        user: state.user,
+        errorMessage: e.message,
+        fieldErrors: fieldErrors ?? const {},
+      );
+    } on Failure catch (e) {
+      state = AuthState(
+        status: AuthStatus.authenticated,
+        user: state.user,
+        errorMessage: e.message,
+      );
+    } catch (e, st) {
+      debugPrint('changePassword falló: $e\n$st');
+      state = AuthState(
+        status: AuthStatus.authenticated,
+        user: state.user,
+        errorMessage: 'No se pudo cambiar la contraseña. Intenta de nuevo.',
+      );
+    }
+  }
+
   AuthState _errorState(Failure failure) {
     if (failure is ServerFailure) {
       // Log temporal para depurar el 422 de producción en registro/login.

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/theme.dart';
+import '../../../core/validators/password_validators.dart';
 import '../providers/auth_provider.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
@@ -30,28 +31,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
-  }
-
-  String? _validatePassword(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'Ingresa una contraseña';
-    }
-    if (value.length < 12) {
-      return 'Mínimo 12 caracteres';
-    }
-    if (!RegExp(r'[A-Z]').hasMatch(value)) {
-      return 'Debe incluir al menos una mayúscula';
-    }
-    if (!RegExp(r'[a-z]').hasMatch(value)) {
-      return 'Debe incluir al menos una minúscula';
-    }
-    if (!RegExp(r'[0-9]').hasMatch(value)) {
-      return 'Debe incluir al menos un número';
-    }
-    if (!RegExp(r'[^A-Za-z0-9]').hasMatch(value)) {
-      return 'Debe incluir al menos un símbolo';
-    }
-    return null;
   }
 
   Future<void> _submit() async {
@@ -291,7 +270,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                       borderRadius: BorderRadius.circular(12),
                                     ),
                                   ),
-                                  validator: _validatePassword,
+                                  validator: validatePassword,
                                 ),
                                 const SizedBox(height: 16),
                                 TextFormField(

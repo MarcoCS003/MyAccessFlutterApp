@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cliente_flutter_myaccess/core/theme/theme.dart';
+import 'package:cliente_flutter_myaccess/features/auth/models/user.dart';
 import 'package:cliente_flutter_myaccess/features/auth/providers/auth_provider.dart';
 import 'package:cliente_flutter_myaccess/features/auth/providers/debug_role_provider.dart';
 import 'package:cliente_flutter_myaccess/features/padres/screens/home_padre_screen.dart';
@@ -40,7 +41,9 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
     final debugRole = ref.watch(debugRoleProvider);
     final unreadCount = ref.watch(notificationProvider.notifier).unreadCount;
     final effectiveRole = debugRole ?? authState.user?.role ?? 'parent';
-    final isTeacher = effectiveRole == 'teacher';
+    // Lista blanca: parent ve UI de padre; teacher/admin/root UI de maestro;
+    // student/user se ignoran y mantienen el comportamiento previo (padre).
+    final isTeacher = staffRoles.contains(effectiveRole);
 
     // Tab QR para padres: lista de selección de hijo → ChildQrScreen
     Widget parentQrTab() {

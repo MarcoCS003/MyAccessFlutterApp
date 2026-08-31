@@ -7,6 +7,7 @@ import '../../features/auth/screens/login_screen.dart';
 import '../../features/auth/screens/register_screen.dart';
 import '../../features/auth/screens/forgot_password_screen.dart';
 import '../../features/auth/screens/reset_password_screen.dart';
+import '../../features/auth/screens/change_password_screen.dart';
 import '../../features/padres/screens/link_child_screen.dart';
 import '../../features/padres/screens/link_child_confirm_screen.dart';
 import '../../features/padres/screens/child_detail_screen.dart';
@@ -39,6 +40,15 @@ final routerProvider = Provider<GoRouter>((ref) {
         return isAuthRoute ? null : '/login';
       }
 
+      // Cambio de contraseña forzado: mientras el flag esté encendido, la
+      // única ruta permitida es /change-password (bloquea homes, perfil,
+      // rutas de auth, etc.).
+      if (authState.user?.mustChangePassword == true) {
+        return state.matchedLocation == '/change-password'
+            ? null
+            : '/change-password';
+      }
+
       if (isAuthRoute) {
         // Alta de cuenta adicional desde Perfil: un usuario autenticado
         // puede entrar a /login solo en modo addAccount.
@@ -66,6 +76,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           final email = state.uri.queryParameters['email'] ?? '';
           return ResetPasswordScreen(email: email);
         },
+      ),
+      GoRoute(
+        path: '/change-password',
+        builder: (context, state) => const ChangePasswordScreen(),
       ),
       GoRoute(
         path: '/home',

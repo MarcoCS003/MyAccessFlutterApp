@@ -40,7 +40,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
     final displayName = user?.name ?? 'Usuario';
     final displayEmail = user?.email ?? '';
-    final isTeacher = user?.role == 'teacher';
+    final isTeacher = user?.isTeacher ?? false;
     final role = isTeacher ? 'Docente' : 'Tutor';
 
     final parts = displayName.trim().split(' ');
@@ -348,7 +348,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         : displayName.isNotEmpty
         ? displayName[0].toUpperCase()
         : 'U';
-    final roleLabel = session.user.role == 'teacher' ? 'Docente' : 'Tutor';
+    final roleLabel = session.user.isTeacher ? 'Docente' : 'Tutor';
     final isSwitching = _switchingKey == session.userKey;
 
     return ListTile(
