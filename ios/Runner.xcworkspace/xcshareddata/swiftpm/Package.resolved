@@ -134,6 +134,15 @@
         "revision" : "55d7a1cc5666b85c13464aea1c4b4a90feccb4c8",
         "version" : "1.38.1"
       }
+    },
+    {
+      "identity" : "transistor-background-fetch",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/transistorsoft/transistor-background-fetch.git",
+      "state" : {
+        "revision" : "34676021268c22c5cd356d9c96644aa0ee5fb68d",
+        "version" : "4.1.1"
+      }
     }
   ],
   "version" : 2
