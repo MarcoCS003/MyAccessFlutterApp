@@ -94,15 +94,24 @@ Future<void> main() async {
       // en la misma zona donde corre runApp (evita el "Zone mismatch").
       // El orden importa: Firebase primero, luego los handlers.
       WidgetsFlutterBinding.ensureInitialized();
+      crashLog('startup:binding');
       await Firebase.initializeApp(
         options: DefaultFirebaseOptions.currentPlatform,
       );
+      crashLog('startup:firebase');
 
-      // Crashlytics: captura global de errores.
-      FlutterError.onError =
-          FirebaseCrashlytics.instance.recordFlutterFatalError;
+      // Crashlytics: captura global de errores. Los handlers usan los
+      // wrappers best-effort de crash_report.dart: si Crashlytics no está
+      // disponible (p. ej. Firebase no inicializó), el handler NO debe
+      // lanzar — un throw aquí mata el proceso y enmascara el error
+      // original (pasó en release con shrinkResources de Flutter 3.44).
+      FlutterError.onError = (details) {
+        try {
+          FirebaseCrashlytics.instance.recordFlutterFatalError(details);
+        } catch (_) {}
+      };
       PlatformDispatcher.instance.onError = (error, stack) {
-        FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+        crashRecordError(error, stack);
         return true;
       };
       ErrorWidget.builder = appErrorBuilder;
@@ -117,15 +126,18 @@ Future<void> main() async {
       FirebaseMessaging.onBackgroundMessage(
         _firebaseMessagingBackgroundHandler,
       );
+      crashLog('startup:fcm');
 
       await Hive.initFlutter();
       await Hive.openBox(AppConstants.authBox);
       await Hive.openBox(AppConstants.childrenBox);
       await Hive.openBox(AppConstants.notificationsBox);
       await Hive.openBox(AppConstants.settingsBox);
+      crashLog('startup:hive');
 
       // Programar el one-off de la próxima ventana de sync (9–10 / 15–16).
       await scheduleNextSyncWindow();
+      crashLog('startup:workmanager');
 
       // Sync de respaldo al abrir la app si la ventana actual/pasada aún no
       // tiene marcador (Doze, iOS sin fetch). No corre en horas pico a menos
@@ -134,11 +146,15 @@ Future<void> main() async {
 
       // Datos de locale para los DateFormat con 'es' (detalle del alumno).
       await initializeDateFormatting('es');
+      crashLog('startup:locale');
 
       runApp(const ProviderScope(child: MyApp()));
+      crashLog('startup:runApp');
     },
     (error, stack) {
-      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+      // crashRecordError traga errores: si Firebase no inicializó, este
+      // handler no puede volver a lanzar (eso mató la app en release).
+      crashRecordError(error, stack);
     },
   );
 }

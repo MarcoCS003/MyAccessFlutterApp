@@ -110,6 +110,8 @@ flutter build apk --release
 - **Core library desugaring is enabled** (`isCoreLibraryDesugaringEnabled` + `desugar_jdk_libs`) — required by `flutter_local_notifications`; do not remove.
 - Package name: `com.jmoreno.riverboldbrave` (matches the existing Firebase Android app).
 - Release builds currently sign with the debug key (TODO in config).
+- **⚠️ R8/shrink DESHABILITADO en release:** `android/gradle.properties` tiene `shrink=false`. Flutter 3.44 activa `isMinifyEnabled`/`isShrinkResources` por defecto en release; shrinkResources eliminaba los recursos de `google-services` (`google_app_id`, etc.) → Firebase no inicializaba en el AAB de Play y la app quedaba colgada en el splash sin eventos en Crashlytics (fix 2026-09-02, v1.0.1+3). `android/app/proguard-rules.pro` ya existe con keeps para firebase_*, workmanager, flutter_local_notifications y flutter_secure_storage por si se reactiva minify — requiere validación exhaustiva en físico antes de subir a Play.
+- **Handlers de Crashlytics blindados:** en `main.dart` nunca se llama `FirebaseCrashlytics.instance` directo en el zone handler ni en `PlatformDispatcher.onError` (usan `crashRecordError`, que traga errores); un throw ahí mata el proceso si Firebase no inicializó. `main()` deja breadcrumbs `crashLog('startup:<paso>')` tras cada await del arranque.
 
 ## iOS / macOS Build Notes
 
