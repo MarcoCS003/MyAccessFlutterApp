@@ -1,5 +1,5 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -410,6 +410,20 @@ class AuthNotifier extends StateNotifier<AuthState> {
   /// continuar aunque el dispositivo no pueda recibir push.
   Future<String?> _getFcmTokenSafely() async {
     try {
+      // iOS puede tardar en entregar el token de APNs después de pedir
+      // permisos. FCM no puede generar un token válido antes de recibirlo.
+      if (defaultTargetPlatform == TargetPlatform.iOS) {
+        String? apnsToken;
+        for (var attempt = 0; attempt < 10; attempt++) {
+          apnsToken = await _firebaseMessaging.getAPNSToken();
+          if (apnsToken != null && apnsToken.isNotEmpty) break;
+          await Future<void>.delayed(const Duration(milliseconds: 500));
+        }
+        if (apnsToken == null || apnsToken.isEmpty) {
+          debugPrint('APNs token no disponible; se continúa sin push');
+          return null;
+        }
+      }
       return await _firebaseMessaging.getToken();
     } catch (e) {
       debugPrint('FCM token no disponible (se continúa sin push): $e');
