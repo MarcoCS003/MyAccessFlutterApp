@@ -89,14 +89,17 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 Future<void> main() async {
   await runZonedGuarded(
     () async {
-      // El orden importa: ensureInitialized y Firebase.initializeApp deben
-      // ejecutarse ANTES de configurar Crashlytics y ANTES de runApp, y todo
-      // dentro de la misma zona para evitar el "Zone mismatch".
+      // El binding y Firebase se inicializan DENTRO de la zona protegida,
+      // en la misma zona donde corre runApp (evita el "Zone mismatch").
+      // El orden importa: Firebase primero, luego los handlers.
       WidgetsFlutterBinding.ensureInitialized();
-      await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
 
-      // Crashlytics: captura global de errores (después de Firebase init).
-      FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+      // Crashlytics: captura global de errores.
+      FlutterError.onError =
+          FirebaseCrashlytics.instance.recordFlutterFatalError;
       PlatformDispatcher.instance.onError = (error, stack) {
         FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
         return true;
