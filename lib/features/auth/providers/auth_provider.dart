@@ -393,6 +393,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     try {
       final fcmToken = await _getFcmTokenSafely();
       if (fcmToken == null || fcmToken.isEmpty) return;
+      if (kDebugMode) debugPrint('[FCM] token: $fcmToken');
 
       await _apiService.post(
         '/update-fcm-token',
@@ -416,7 +417,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
         String? apnsToken;
         for (var attempt = 0; attempt < 10; attempt++) {
           apnsToken = await _firebaseMessaging.getAPNSToken();
-          if (apnsToken != null && apnsToken.isNotEmpty) break;
+          if (apnsToken != null && apnsToken.isNotEmpty) {
+            if (kDebugMode) debugPrint('[FCM] APNs token disponible');
+            break;
+          }
           await Future<void>.delayed(const Duration(milliseconds: 500));
         }
         if (apnsToken == null || apnsToken.isEmpty) {
