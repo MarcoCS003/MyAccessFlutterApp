@@ -59,10 +59,10 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyCmu1SoEFQYEh3YW18inFz9cgGQe0hdK6E',
-    appId: '1:51217244764:ios:4771750528de9b13d3fc99',
+    appId: '1:51217244764:ios:36bcd5152b6405bad3fc99',
     messagingSenderId: '51217244764',
     projectId: 'notificacionesapptutores',
     storageBucket: 'notificacionesapptutores.firebasestorage.app',
-    iosBundleId: 'com.ijl.clienteFlutterMyaccess',
+    iosBundleId: 'com.ijl.myaccess',
   );
 }

@@ -2,6 +2,12 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CLIENT_ID</key>
+	<string>51217244764-u2tf0llbvpniej25ams7sg5i1qmreb31.apps.googleusercontent.com</string>
+	<key>REVERSED_CLIENT_ID</key>
+	<string>com.googleusercontent.apps.51217244764-u2tf0llbvpniej25ams7sg5i1qmreb31</string>
+	<key>ANDROID_CLIENT_ID</key>
+	<string>51217244764-4g6jndl4gur83hd6ktib4fvqi3amqvrd.apps.googleusercontent.com</string>
 	<key>API_KEY</key>
 	<string>AIzaSyCmu1SoEFQYEh3YW18inFz9cgGQe0hdK6E</string>
 	<key>GCM_SENDER_ID</key>
@@ -9,7 +15,7 @@
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>com.ijl.clienteFlutterMyaccess</string>
+	<string>com.ijl.myaccess</string>
 	<key>PROJECT_ID</key>
 	<string>notificacionesapptutores</string>
 	<key>STORAGE_BUCKET</key>
@@ -25,6 +31,8 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:51217244764:ios:4771750528de9b13d3fc99</string>
+	<string>1:51217244764:ios:36bcd5152b6405bad3fc99</string>
+	<key>DATABASE_URL</key>
+	<string>https://notificacionesapptutores-default-rtdb.firebaseio.com</string>
 </dict>
 </plist>
