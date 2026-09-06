@@ -85,7 +85,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       debugPrint('signInWithEmailPassword falló: $e\n$st');
       state = AuthState(
         status: AuthStatus.error,
-        errorMessage: 'Credenciales incorrectas o error del servidor',
+        errorMessage: 'No se pudo iniciar sesión. Intenta de nuevo.',
       );
     }
   }
@@ -213,15 +213,38 @@ class AuthNotifier extends StateNotifier<AuthState> {
         '| fieldErrors: ${failure.fieldErrors}',
       );
       final fieldErrors = failure.fieldErrors?.map(
-        (key, value) => MapEntry(key, value.first),
+        (key, value) => MapEntry(key, _friendlyAuthError(value.first)),
       );
       return AuthState(
         status: AuthStatus.error,
-        errorMessage: failure.message,
+        errorMessage: _friendlyAuthError(
+          failure.message,
+          statusCode: failure.statusCode,
+        ),
         fieldErrors: fieldErrors ?? const {},
       );
     }
     return AuthState(status: AuthStatus.error, errorMessage: failure.message);
+  }
+
+  /// Traduce los mensajes crudos del backend (Laravel, en inglés o
+  /// genéricos) a textos claros para el usuario en login y registro.
+  String _friendlyAuthError(String message, {int? statusCode}) {
+    final lower = message.toLowerCase();
+    if (statusCode == 401 ||
+        lower.contains('credencial') ||
+        lower.contains('credentials') ||
+        lower.contains('unauthorized')) {
+      return 'Contraseña incorrecta';
+    }
+    if (lower.contains('taken') ||
+        lower.contains('unique') ||
+        lower.contains('already') ||
+        lower.contains('ya está registrado') ||
+        lower.contains('ya existe')) {
+      return 'Este correo ya está registrado';
+    }
+    return message;
   }
 
   /// Cierra la sesión ACTIVA: elimina solo esa cuenta del dispositivo.

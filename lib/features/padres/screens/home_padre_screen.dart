@@ -10,7 +10,12 @@ import '../widgets/child_card.dart';
 
 class HomePadreScreen extends ConsumerWidget {
   final bool showQrSelector;
-  const HomePadreScreen({super.key, this.showQrSelector = false});
+  final VoidCallback? onProfileTap;
+  const HomePadreScreen({
+    super.key,
+    this.showQrSelector = false,
+    this.onProfileTap,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -78,15 +83,27 @@ class HomePadreScreen extends ConsumerWidget {
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 16.0),
-            child: CircleAvatar(
-              radius: 16,
-              backgroundColor: AppTheme.lightGoldColor,
-              child: Text(
-                authState.user?.name.substring(0, 2).toUpperCase() ?? 'MP',
-                style: GoogleFonts.inter(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
-                  color: AppTheme.accentGoldColor,
+            child: InkWell(
+              onTap: onProfileTap,
+              customBorder: const CircleBorder(),
+              child: Tooltip(
+                message: 'Perfil',
+                child: Semantics(
+                  label: 'Ir a perfil',
+                  button: true,
+                  child: CircleAvatar(
+                    radius: 16,
+                    backgroundColor: AppTheme.lightGoldColor,
+                    child: Text(
+                      authState.user?.name.substring(0, 2).toUpperCase() ??
+                          'MP',
+                      style: GoogleFonts.inter(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                        color: AppTheme.accentGoldColor,
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),

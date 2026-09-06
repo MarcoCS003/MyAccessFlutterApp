@@ -45,7 +45,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
   }
 
-  void _goToRegister() => context.go('/register');
+  void _goToRegister() {
+    final isAddAccount =
+        GoRouterState.of(context).uri.queryParameters['addAccount'] == '1';
+    context.go(isAddAccount ? '/register?addAccount=1' : '/register');
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -252,7 +256,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                   child: InkWell(
                                     onTap: authState.isLoading
                                         ? null
-                                        : () => context.go('/forgot-password'),
+                                        : () =>
+                                              context.push('/forgot-password'),
                                     borderRadius: BorderRadius.circular(4),
                                     child: Padding(
                                       padding: const EdgeInsets.symmetric(

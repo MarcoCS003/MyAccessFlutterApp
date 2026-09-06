@@ -32,7 +32,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
         .read(passwordRecoveryProvider.notifier)
         .sendResetCode(email);
     if (success && mounted) {
-      context.go('/reset-password?email=${Uri.encodeQueryComponent(email)}');
+      context.push('/reset-password?email=${Uri.encodeQueryComponent(email)}');
     }
   }
 

@@ -44,9 +44,21 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           password: _passwordController.text,
           passwordConfirmation: _confirmPasswordController.text,
         );
+    if (!mounted) return;
+    // Alta de cuenta adicional desde Perfil: el redirect del router no saca
+    // de /register en ese modo, así que navegamos explícitamente al completar.
+    final isAddAccount =
+        GoRouterState.of(context).uri.queryParameters['addAccount'] == '1';
+    if (isAddAccount && ref.read(authProvider).isAuthenticated) {
+      context.go('/home');
+    }
   }
 
-  void _goToLogin() => context.go('/login');
+  void _goToLogin() {
+    final isAddAccount =
+        GoRouterState.of(context).uri.queryParameters['addAccount'] == '1';
+    context.go(isAddAccount ? '/login?addAccount=1' : '/login');
+  }
 
   @override
   Widget build(BuildContext context) {

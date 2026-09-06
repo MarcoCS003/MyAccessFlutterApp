@@ -74,7 +74,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
 
   void _goToForgotPassword() {
     ref.read(passwordRecoveryProvider.notifier).reset();
-    context.go('/forgot-password');
+    context.pop();
   }
 
   @override

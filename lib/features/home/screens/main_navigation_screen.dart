@@ -163,7 +163,11 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
     }
 
     final List<Widget> screens = [
-      isTeacher ? const HomeMaestroScreen() : const HomePadreScreen(),
+      isTeacher
+          ? const HomeMaestroScreen()
+          : HomePadreScreen(
+              onProfileTap: () => setState(() => _selectedIndex = 3),
+            ),
       isTeacher ? const TeacherQRScreen() : parentQrTab(),
       const NotificationsScreen(),
       const ProfileScreen(),

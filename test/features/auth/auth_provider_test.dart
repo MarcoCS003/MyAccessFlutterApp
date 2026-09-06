@@ -107,7 +107,7 @@ void main() {
       await notifier.signInWithEmailPassword('test@ijl.edu.mx', 'wrong');
 
       expect(notifier.state.status, AuthStatus.error);
-      expect(notifier.state.errorMessage, isNotNull);
+      expect(notifier.state.errorMessage, 'Contraseña incorrecta');
     });
 
     test(
@@ -261,6 +261,56 @@ void main() {
         () => mockStorage.write(key: 'jwt_token', value: 'register_token'),
       ).called(1);
     });
+
+    test(
+      '422 por correo duplicado muestra mensaje amigable en español',
+      () async {
+        when(
+          () => mockDio.post(
+            '/auth/register',
+            data: any(named: 'data'),
+            options: any(named: 'options'),
+          ),
+        ).thenThrow(
+          DioException(
+            requestOptions: RequestOptions(path: '/auth/register'),
+            response: Response(
+              data: {
+                'message': 'The email has already been taken.',
+                'errors': {
+                  'email': ['The email has already been taken.'],
+                },
+              },
+              statusCode: 422,
+              requestOptions: RequestOptions(path: '/auth/register'),
+            ),
+            type: DioExceptionType.badResponse,
+          ),
+        );
+
+        final apiService = ApiService(dio: mockDio, secureStorage: mockStorage);
+        final notifier = AuthNotifier(
+          skipInitialCheck: true,
+          firebaseMessaging: mockFirebaseMessaging,
+          secureStorage: mockStorage,
+          apiService: apiService,
+        );
+
+        await notifier.signUp(
+          name: 'Juan Pérez',
+          email: 'juan@ijl.edu.mx',
+          password: 'ContraseñaSegura123!',
+          passwordConfirmation: 'ContraseñaSegura123!',
+        );
+
+        expect(notifier.state.status, AuthStatus.error);
+        expect(notifier.state.errorMessage, 'Este correo ya está registrado');
+        expect(
+          notifier.state.fieldErrors['email'],
+          'Este correo ya está registrado',
+        );
+      },
+    );
   });
 
   group('AuthNotifier multi-sesión', () {
