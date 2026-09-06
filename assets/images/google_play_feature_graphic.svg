@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1024" height="500" viewBox="0 0 1024 500" role="img" aria-labelledby="title desc">
+  <title id="title">MyAccess IJL - Acceso escolar</title>
+  <desc id="desc">Grafico promocional para Google Play de la aplicacion MyAccess IJL.</desc>
+
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#002452"/>
+      <stop offset="1" stop-color="#1B3A6B"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FEDB9B"/>
+      <stop offset="1" stop-color="#C5A56F"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="14" stdDeviation="18" flood-color="#00132e" flood-opacity="0.32"/>
+    </filter>
+  </defs>
+
+  <rect width="1024" height="500" fill="url(#background)"/>
+  <circle cx="913" cy="-25" r="245" fill="#315184" opacity="0.36"/>
+  <circle cx="1015" cy="474" r="210" fill="#002452" opacity="0.45"/>
+  <path d="M0 421C190 345 294 469 477 392c93-39 158-44 231-15v123H0z" fill="#001b3e" opacity="0.55"/>
+  <path d="M0 0h244L0 244z" fill="#315184" opacity="0.24"/>
+
+  <g fill="none" stroke="#FEDB9B" stroke-linecap="round" opacity="0.82">
+    <path d="M65 74h68" stroke-width="6"/>
+    <path d="M65 94h38" stroke-width="4"/>
+    <path d="M65 114h52" stroke-width="4"/>
+  </g>
+  <circle cx="154" cy="94" r="7" fill="#FEDB9B"/>
+
+  <g fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif">
+    <text x="64" y="208" font-size="28" font-weight="700" letter-spacing="5" fill="#FEDB9B">MYACCESS</text>
+    <text x="60" y="284" font-size="68" font-weight="700" letter-spacing="-2">Acceso IJL</text>
+    <text x="64" y="332" font-size="27" font-weight="400" fill="#E7EDF6">Control de acceso escolar</text>
+    <text x="64" y="370" font-size="27" font-weight="400" fill="#E7EDF6">simple, seguro y en tiempo real.</text>
+  </g>
+
+  <g transform="translate(64 424)" fill="none" stroke="#FEDB9B" stroke-width="3">
+    <rect width="18" height="18" rx="5"/>
+    <path d="m5 9 3 3 6-7" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <text x="94" y="439" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="600">Entradas y salidas al instante</text>
+
+  <g filter="url(#shadow)">
+    <rect x="680" y="64" width="348" height="348" rx="68" fill="#FFFFFF" opacity="0.14"/>
+    <g transform="translate(692 76) scale(0.6328125)">
+      <rect width="512" height="512" rx="112" fill="#1B3A6B"/>
+      <path d="M256 113c-39-28-82-32-128-13v151c0 48 23 78 68 89 25 6 44 16 60 31 16-15 35-25 60-31 45-11 68-41 68-89V100c-46-19-89-15-128 13z" fill="#C5A56F" stroke="#FFFFFF" stroke-width="12" stroke-linejoin="round"/>
+      <g fill="none" stroke="#FFFFFF" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M256 119v253" stroke-width="10"/>
+        <path d="M151 128c28 8 53 7 76 1 12-3 21-2 29 4v179c-18-12-39-19-62-23-29-5-43-24-43-56z" stroke-width="8"/>
+        <path d="M361 128c-28 8-53 7-76 1-12-3-21-2-29 4v179c18-12 39-19 62-23 29-5 43-24 43-56z" stroke-width="8"/>
+      </g>
+      <g stroke-linejoin="round">
+        <rect x="328" y="327" width="120" height="120" rx="24" fill="#FEDB9B" stroke="#FFFFFF" stroke-width="10"/>
+        <path d="m350 386 23 23 51-55" fill="none" stroke="#002452" stroke-width="17" stroke-linecap="round" stroke-linejoin="round"/>
+      </g>
+    </g>
+  </g>
+
+  <g transform="translate(798 427)">
+    <rect width="151" height="38" rx="19" fill="url(#gold)"/>
+    <circle cx="25" cy="19" r="7" fill="#002452"/>
+    <text x="42" y="26" fill="#002452" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="700" letter-spacing="1">IJL</text>
+    <text x="74" y="26" fill="#002452" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="400">familias</text>
+  </g>
+</svg>

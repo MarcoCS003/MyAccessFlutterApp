@@ -13,7 +13,6 @@ import '../../features/padres/screens/link_child_confirm_screen.dart';
 import '../../features/padres/screens/child_detail_screen.dart';
 import '../../features/padres/screens/child_qr_screen.dart';
 import '../../features/maestros/screens/teacher_qr_screen.dart';
-import '../../features/notifications/screens/notifications_screen.dart';
 import '../../features/home/screens/main_navigation_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -84,11 +83,15 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/home',
-        builder: (context, state) => const MainNavigationScreen(),
+        builder: (context, state) => MainNavigationScreen(
+          initialTab: _parseInitialTab(state.uri.queryParameters['tab']),
+        ),
       ),
       GoRoute(
         path: '/parent-home',
-        builder: (context, state) => const MainNavigationScreen(),
+        builder: (context, state) => MainNavigationScreen(
+          initialTab: _parseInitialTab(state.uri.queryParameters['tab']),
+        ),
       ),
       GoRoute(
         path: '/link-child',
@@ -120,7 +123,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/teacher-home',
-        builder: (context, state) => const MainNavigationScreen(),
+        builder: (context, state) => MainNavigationScreen(
+          initialTab: _parseInitialTab(state.uri.queryParameters['tab']),
+        ),
       ),
       GoRoute(
         path: '/qr',
@@ -130,10 +135,15 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/teacher-qr',
         builder: (context, state) => const TeacherQRScreen(),
       ),
-      GoRoute(
-        path: '/notifications',
-        builder: (context, state) => const NotificationsScreen(),
-      ),
     ],
   );
 });
+
+/// Tab inicial de MainNavigationScreen vía query param `?tab=<indice>`
+/// (0=Inicio, 1=QR, 2=Notis, 3=Perfil). Lo usa el tap de notificaciones
+/// para aterrizar en el tab Notis sin perder la barra de navegación.
+int? _parseInitialTab(String? raw) {
+  final index = int.tryParse(raw ?? '');
+  if (index == null || index < 0 || index > 3) return null;
+  return index;
+}

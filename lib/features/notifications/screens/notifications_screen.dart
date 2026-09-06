@@ -176,117 +176,106 @@ class _NotificationTile extends ConsumerWidget {
     final iconData = isEntry ? Icons.login_rounded : Icons.logout_rounded;
     final timeText = DateFormat('HH:mm').format(item.timestamp);
 
-    return Dismissible(
-      key: Key(item.id),
-      direction: DismissDirection.endToStart,
-      background: Container(
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 20),
-        color: AppTheme.errorColor,
-        child: const Icon(Icons.delete_outline, color: Colors.white),
-      ),
-      onDismissed: (_) =>
-          ref.read(notificationProvider.notifier).dismiss(item.id),
-      child: InkWell(
-        onTap: () =>
-            ref.read(notificationProvider.notifier).markAsRead(item.id),
-        child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
-          decoration: BoxDecoration(
-            color: item.isRead ? AppTheme.bgLightColor : Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppTheme.borderLightColor),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (!item.isRead)
-                Container(
-                  width: 4,
-                  height: 90,
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryColor,
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(14),
-                      bottomLeft: Radius.circular(14),
-                    ),
-                  ),
-                ),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(14),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      CircleAvatar(
-                        radius: 20,
-                        backgroundColor: iconColor.withValues(alpha: 0.12),
-                        child: Icon(iconData, color: iconColor, size: 18),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    item.title,
-                                    style: GoogleFonts.inter(
-                                      fontSize: 15,
-                                      fontWeight: item.isRead
-                                          ? FontWeight.normal
-                                          : FontWeight.bold,
-                                      color: AppTheme.textPrimaryColor,
-                                    ),
-                                  ),
-                                ),
-                                if (!item.isRead)
-                                  Container(
-                                    margin: const EdgeInsets.only(
-                                      left: 8,
-                                      top: 4,
-                                    ),
-                                    width: 8,
-                                    height: 8,
-                                    decoration: const BoxDecoration(
-                                      color: AppTheme.primaryColor,
-                                      shape: BoxShape.circle,
-                                    ),
-                                  ),
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              item.body,
-                              style: GoogleFonts.inter(
-                                fontSize: 13,
-                                color: AppTheme.textSecondaryColor,
-                                height: 1.4,
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              timeText,
-                              style: GoogleFonts.inter(
-                                fontSize: 11,
-                                color: AppTheme.textSecondaryColor.withValues(
-                                  alpha: 0.7,
-                                ),
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+    // Las notificaciones son fuente de la verdad: no se pueden eliminar,
+    // solo marcar como leídas.
+    return InkWell(
+      onTap: () => ref.read(notificationProvider.notifier).markAsRead(item.id),
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+        decoration: BoxDecoration(
+          color: item.isRead ? AppTheme.bgLightColor : Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppTheme.borderLightColor),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (!item.isRead)
+              Container(
+                width: 4,
+                height: 90,
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(14),
+                    bottomLeft: Radius.circular(14),
                   ),
                 ),
               ),
-            ],
-          ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    CircleAvatar(
+                      radius: 20,
+                      backgroundColor: iconColor.withValues(alpha: 0.12),
+                      child: Icon(iconData, color: iconColor, size: 18),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  item.title,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 15,
+                                    fontWeight: item.isRead
+                                        ? FontWeight.normal
+                                        : FontWeight.bold,
+                                    color: AppTheme.textPrimaryColor,
+                                  ),
+                                ),
+                              ),
+                              if (!item.isRead)
+                                Container(
+                                  margin: const EdgeInsets.only(
+                                    left: 8,
+                                    top: 4,
+                                  ),
+                                  width: 8,
+                                  height: 8,
+                                  decoration: const BoxDecoration(
+                                    color: AppTheme.primaryColor,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            item.body,
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              color: AppTheme.textSecondaryColor,
+                              height: 1.4,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            timeText,
+                            style: GoogleFonts.inter(
+                              fontSize: 11,
+                              color: AppTheme.textSecondaryColor.withValues(
+                                alpha: 0.7,
+                              ),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

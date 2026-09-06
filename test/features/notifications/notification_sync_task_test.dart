@@ -65,7 +65,10 @@ Future<SessionStore> _seedSessions() async {
     (invocation) async => memory[invocation.namedArguments[#key] as String],
   );
   when(
-    () => storage.write(key: any(named: 'key'), value: any(named: 'value')),
+    () => storage.write(
+      key: any(named: 'key'),
+      value: any(named: 'value'),
+    ),
   ).thenAnswer((invocation) async {
     memory[invocation.namedArguments[#key] as String] =
         invocation.namedArguments[#value] as String;
@@ -103,34 +106,37 @@ void main() {
   });
 
   group('syncAccountNotifications', () {
-    test('envía los últimos 10 backendIds locales y guarda faltantes', () async {
-      final store = NotificationLocalStore(userKey: 'papa@ijl.edu.mx');
-      final locals = [
-        for (var i = 1; i <= 12; i++)
-          _item(
-            'local_$i',
-            backendId: i,
-            timestamp: DateTime(2026, 8, 20, 7, i),
-          ),
-      ];
-      await store.saveAll(locals);
+    test(
+      'envía los últimos 10 backendIds locales y guarda faltantes',
+      () async {
+        final store = NotificationLocalStore(userKey: 'papa@ijl.edu.mx');
+        final locals = [
+          for (var i = 1; i <= 12; i++)
+            _item(
+              'local_$i',
+              backendId: i,
+              timestamp: DateTime(2026, 8, 20, 7, i),
+            ),
+        ];
+        await store.saveAll(locals);
 
-      final session = _session('papa@ijl.edu.mx', 10, 'parent');
-      final service = _FakeSyncService([
-        _item('nueva', backendId: 200, recipientUserId: 10),
-      ]);
+        final session = _session('papa@ijl.edu.mx', 10, 'parent');
+        final service = _FakeSyncService([
+          _item('nueva', backendId: 200, recipientUserId: 10),
+        ]);
 
-      final result = await syncAccountNotifications(
-        session: session,
-        syncService: service,
-      );
+        final result = await syncAccountNotifications(
+          session: session,
+          syncService: service,
+        );
 
-      expect(result.succeeded, isTrue);
-      expect(result.insertedCount, 1);
-      expect(service.requests.single, [12, 11, 10, 9, 8, 7, 6, 5, 4, 3]);
-      final saved = store.load();
-      expect(saved.map((n) => n.id), contains('nueva'));
-    });
+        expect(result.succeeded, isTrue);
+        expect(result.insertedCount, 1);
+        expect(service.requests.single, [12, 11, 10, 9, 8, 7, 6, 5, 4, 3]);
+        final saved = store.load();
+        expect(saved.map((n) => n.id), contains('nueva'));
+      },
+    );
 
     test('descarta items con user_id de otra cuenta', () async {
       final session = _session('papa@ijl.edu.mx', 10, 'parent');
@@ -205,49 +211,52 @@ void main() {
   group('executeWindowSync', () {
     final windowStart = DateTime(2026, 8, 29, 9);
 
-    test('marca la ventana por cuenta y no repite en la misma ventana', () async {
-      final sessions = await _seedSessions();
-      final service = _FakeSyncService([
-        _item('padre', backendId: 801, recipientUserId: 10),
-      ]);
+    test(
+      'marca la ventana por cuenta y no repite en la misma ventana',
+      () async {
+        final sessions = await _seedSessions();
+        final service = _FakeSyncService([
+          _item('padre', backendId: 801, recipientUserId: 10),
+        ]);
 
-      final first = await executeWindowSync(
-        windowStart: windowStart,
-        sessionStore: sessions,
-        serviceFactory: (session, jwt) => service,
-      );
+        final first = await executeWindowSync(
+          windowStart: windowStart,
+          sessionStore: sessions,
+          serviceFactory: (session, jwt) => service,
+        );
 
-      expect(first.accounts['papa@ijl.edu.mx']?.succeeded, isTrue);
-      expect(
-        Hive.box('settings_box').get('lastDiffSync_papa@ijl.edu.mx'),
-        '2026-08-29:09',
-      );
-      final callsAfterFirst = service.calls;
+        expect(first.accounts['papa@ijl.edu.mx']?.succeeded, isTrue);
+        expect(
+          Hive.box('settings_box').get('lastDiffSync_papa@ijl.edu.mx'),
+          '2026-08-29:09',
+        );
+        final callsAfterFirst = service.calls;
 
-      final second = await executeWindowSync(
-        windowStart: windowStart,
-        sessionStore: sessions,
-        serviceFactory: (session, jwt) => service,
-      );
+        final second = await executeWindowSync(
+          windowStart: windowStart,
+          sessionStore: sessions,
+          serviceFactory: (session, jwt) => service,
+        );
 
-      expect(
-        second.accounts['papa@ijl.edu.mx']?.status,
-        NotificationAccountSyncStatus.alreadySynced,
-      );
-      expect(service.calls, callsAfterFirst);
+        expect(
+          second.accounts['papa@ijl.edu.mx']?.status,
+          NotificationAccountSyncStatus.alreadySynced,
+        );
+        expect(service.calls, callsAfterFirst);
 
-      // Otra ventana (15:00) sí vuelve a sincronizar.
-      await executeWindowSync(
-        windowStart: DateTime(2026, 8, 29, 15),
-        sessionStore: sessions,
-        serviceFactory: (session, jwt) => service,
-      );
-      expect(service.calls, greaterThan(callsAfterFirst));
-      expect(
-        Hive.box('settings_box').get('lastDiffSync_papa@ijl.edu.mx'),
-        '2026-08-29:15',
-      );
-    });
+        // Otra ventana (15:00) sí vuelve a sincronizar.
+        await executeWindowSync(
+          windowStart: DateTime(2026, 8, 29, 15),
+          sessionStore: sessions,
+          serviceFactory: (session, jwt) => service,
+        );
+        expect(service.calls, greaterThan(callsAfterFirst));
+        expect(
+          Hive.box('settings_box').get('lastDiffSync_papa@ijl.edu.mx'),
+          '2026-08-29:15',
+        );
+      },
+    );
 
     test(
       'usa un JWT por cuenta, aísla un fallo y no marca la cuenta fallida',

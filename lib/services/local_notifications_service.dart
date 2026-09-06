@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import '../features/notifications/models/notification_item.dart';
@@ -16,7 +18,7 @@ class LocalNotificationsService {
   static const String _channelDescription =
       'Notificaciones de acceso de alumnos';
 
-  Future<void> init({void Function()? onTap}) async {
+  Future<void> init({void Function(String? payload)? onTap}) async {
     const androidInit = AndroidInitializationSettings('ic_notification');
     // Los permisos ya se piden vía FirebaseMessaging.requestPermission().
     const darwinInit = DarwinInitializationSettings(
@@ -29,7 +31,9 @@ class LocalNotificationsService {
         android: androidInit,
         iOS: darwinInit,
       ),
-      onDidReceiveNotificationResponse: onTap == null ? null : (_) => onTap(),
+      onDidReceiveNotificationResponse: onTap == null
+          ? null
+          : (response) => onTap(response.payload),
     );
     await _plugin
         .resolvePlatformSpecificImplementation<
@@ -61,7 +65,9 @@ class LocalNotificationsService {
         ),
         iOS: DarwinNotificationDetails(),
       ),
-      payload: item.id,
+      // uid = user_id del destinatario: permite al tap cambiar a la cuenta
+      // dueña de la notificación antes de abrir el tab Notis.
+      payload: jsonEncode({'uid': item.recipientUserId}),
     );
   }
 }

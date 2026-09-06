@@ -156,9 +156,9 @@ Future<NotificationSyncRunResult> _executeSync({
   for (final session in sessions) {
     try {
       if (marker != null &&
-          Hive.box(AppConstants.settingsBox).get(
-                _diffMarkerKey(session.userKey),
-              ) ==
+          Hive.box(
+                AppConstants.settingsBox,
+              ).get(_diffMarkerKey(session.userKey)) ==
               marker) {
         debugPrint('$_tag $marker ya sincronizada para esta cuenta, skip');
         results[session.userKey] = const NotificationAccountSyncResult(
@@ -301,12 +301,9 @@ Future<NotificationAccountSyncResult> syncAccountNotifications({
 List<int> _recentLocalBackendIds(String userKey) {
   try {
     final ids =
-        NotificationLocalStore(userKey: userKey)
-            .load()
-            .map((n) => n.backendId)
-            .whereType<int>()
-            .toSet()
-            .toList()
+        NotificationLocalStore(
+            userKey: userKey,
+          ).load().map((n) => n.backendId).whereType<int>().toSet().toList()
           ..sort((a, b) => b.compareTo(a));
     return ids.take(diffWindowSize).toList();
   } catch (e, st) {

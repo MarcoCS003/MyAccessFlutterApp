@@ -81,18 +81,17 @@ void main() {
     expect(find.text('Agregar cuenta'), findsNothing);
   });
 
-  testWidgets(
-    'Tutor con 2 cuentas puede cambiar entre ellas pero no agregar',
-    (tester) async {
-      seedSessions([parentUser, teacherUser]);
-      await tester.pumpWidget(buildProfile(parentUser));
-      await tester.pumpAndSettle();
-      expect(find.text('Cuentas'), findsOneWidget);
-      expect(find.text('Juan Perez'), findsWidgets);
-      expect(find.text('Maria Lopez'), findsOneWidget);
-      expect(find.text('Agregar cuenta'), findsNothing);
-    },
-  );
+  testWidgets('Tutor con 2 cuentas puede cambiar entre ellas pero no agregar', (
+    tester,
+  ) async {
+    seedSessions([parentUser, teacherUser]);
+    await tester.pumpWidget(buildProfile(parentUser));
+    await tester.pumpAndSettle();
+    expect(find.text('Cuentas'), findsOneWidget);
+    expect(find.text('Juan Perez'), findsWidgets);
+    expect(find.text('Maria Lopez'), findsOneWidget);
+    expect(find.text('Agregar cuenta'), findsNothing);
+  });
 
   testWidgets('Docente ve el botón Agregar cuenta', (tester) async {
     seedSessions([teacherUser]);

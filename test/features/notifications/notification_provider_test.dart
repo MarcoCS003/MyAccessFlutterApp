@@ -80,39 +80,6 @@ void main() {
       expect(notifier.state.every((n) => n.isRead), isTrue);
     });
 
-    test('dismiss elimina la notificación', () async {
-      final notifier = NotificationNotifier(userKey: userKey);
-      await notifier.addFromFcm({
-        'student_id': '1',
-        'student_name': 'Juan Pérez',
-        'event': 'check_in',
-        'timestamp': '2026-06-29T08:00:00.000Z',
-        'type': 'attendance',
-      });
-      final id = notifier.state.first.id;
-
-      await notifier.dismiss(id);
-
-      expect(notifier.state.isEmpty, isTrue);
-      expect(notifier.unreadCount, 0);
-    });
-
-    test('clearAll vacía todas las notificaciones', () async {
-      final notifier = NotificationNotifier(userKey: userKey);
-      await notifier.addFromFcm({
-        'student_id': '1',
-        'student_name': 'Juan Pérez',
-        'event': 'check_in',
-        'timestamp': '2026-06-29T08:00:00.000Z',
-        'type': 'attendance',
-      });
-
-      await notifier.clearAll();
-
-      expect(notifier.state.isEmpty, isTrue);
-      expect(notifier.unreadCount, 0);
-    });
-
     test('addFromFcm con el mismo id solo se guarda una vez', () async {
       final notifier = NotificationNotifier(userKey: userKey);
       final data = {

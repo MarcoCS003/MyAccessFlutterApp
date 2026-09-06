@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:ui';
 
 import 'package:firebase_core/firebase_core.dart';
@@ -17,6 +18,7 @@ import 'core/utils/crash_report.dart';
 import 'core/utils/user_key.dart';
 import 'core/widgets/app_error_widget.dart';
 import 'features/auth/data/session_store.dart';
+import 'features/auth/models/auth_state.dart';
 import 'features/auth/providers/auth_provider.dart';
 import 'features/notifications/background/background_sync_register.dart';
 import 'features/notifications/background/notification_sync_task.dart';
@@ -47,11 +49,11 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     await Hive.openBox(AppConstants.childrenBox);
     await Hive.openBox(AppConstants.notificationsBox);
 
-    // Persistir en la BD local con deduplicación; solo si es nuevo se muestra
-    // la notificación del sistema (mensajes data-only no generan UI en bg).
-    // Multi-sesión: se enruta al inbox de la cuenta a la que pertenece el
-    // mensaje (por user_id; payloads viejos usan el ruteo legado). Si el
-    // usuario destinatario no tiene sesión en el dispositivo, se descarta.
+    // Persistir en la BD local con deduplicación. Con firebase_messaging
+    // 15.x este handler corre incluso cuando el mensaje trae bloque
+    // `notification` (el sistema muestra su propio tray en background), así
+    // que solo mostramos el tray local cuando el mensaje es data-only;
+    // de lo contrario el usuario vería la notificación duplicada.
     debugPrint('[FCM][BG] data: ${message.data}');
     final notification = NotificationItem.tryFromFcm(message.data);
     if (notification == null) {
@@ -74,7 +76,7 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
       userKey: targetKey,
     ).upsert(notification);
     if (!persistence.persisted) return;
-    if (persistence.inserted) {
+    if (persistence.inserted && message.notification == null) {
       final service = LocalNotificationsService();
       await service.init();
       await service.showAttendance(notification);
@@ -171,7 +173,7 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _localNotifications.init(onTap: _navigateToNotifications);
+    _localNotifications.init(onTap: _onLocalNotificationTap);
     _setupFcmListeners();
   }
 
@@ -246,7 +248,7 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
       final notification = NotificationItem.tryFromFcm(message.data);
       if (notification == null) return;
       await _persistRouted(notification);
-      _navigateToNotifications();
+      await _openNotificationsTab(targetKey: _routeNotification(notification));
     });
 
     // App abierta desde terminada por una notificación.
@@ -257,16 +259,76 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
         final notification = NotificationItem.tryFromFcm(message.data);
         if (notification == null) return;
         await _persistRouted(notification);
-        _navigateToNotifications();
+        await _openNotificationsTab(
+          targetKey: _routeNotification(notification),
+        );
       }
     });
   }
 
-  void _navigateToNotifications() {
+  /// Tap en una notificación LOCAL (mostrada por flutter_local_notifications
+  /// en foreground/background data-only). El payload trae el user_id del
+  /// destinatario para activar su cuenta si no es la activa.
+  Future<void> _onLocalNotificationTap(String? payload) async {
+    int? userId;
+    if (payload != null && payload.isNotEmpty) {
+      try {
+        final data = jsonDecode(payload) as Map<String, dynamic>;
+        final raw = data['uid'];
+        userId = raw is int ? raw : int.tryParse('$raw');
+      } catch (_) {}
+    }
+    String? targetKey;
+    if (userId != null) {
+      for (final session in SessionStore().listSessions()) {
+        if (session.user.id == userId) {
+          targetKey = session.userKey;
+          break;
+        }
+      }
+    }
+    await _openNotificationsTab(targetKey: targetKey);
+  }
+
+  /// Navega al tab Notis dentro de la navegación principal (conserva la
+  /// barra inferior). Si la notificación pertenece a otra cuenta guardada,
+  /// cambia la sesión activa a esa cuenta para que el usuario vea su inbox.
+  Future<void> _openNotificationsTab({String? targetKey}) async {
+    await _waitForAuthResolution();
+    if (targetKey != null) {
+      final activeEmail = ref.read(authProvider).user?.email;
+      if (activeEmail != null && userStorageKey(activeEmail) != targetKey) {
+        await ref.read(authProvider.notifier).switchAccount(targetKey);
+      }
+    }
+    if (!mounted) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final router = ref.read(routerProvider);
-      router.go('/notifications');
+      router.go('/home?tab=2');
     });
+  }
+
+  /// En cold start (getInitialMessage) el authProvider aún puede estar en
+  /// initial/loading mientras checkAuthStatus resuelve; espera a que defina
+  /// (con timeout) antes de intentar el switch de cuenta.
+  Future<void> _waitForAuthResolution() async {
+    final current = ref.read(authProvider).status;
+    if (current != AuthStatus.initial && current != AuthStatus.loading) {
+      return;
+    }
+    final completer = Completer<void>();
+    final sub = ref.listenManual(authProvider, (previous, next) {
+      if (next.status != AuthStatus.initial &&
+          next.status != AuthStatus.loading &&
+          !completer.isCompleted) {
+        completer.complete();
+      }
+    });
+    await completer.future.timeout(
+      const Duration(seconds: 5),
+      onTimeout: () {},
+    );
+    sub.close();
   }
 
   @override

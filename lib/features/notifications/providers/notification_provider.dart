@@ -132,14 +132,5 @@ class NotificationNotifier extends StateNotifier<List<NotificationItem>> {
     if (await _writeStore.saveAll(updated)) state = updated;
   }
 
-  Future<void> dismiss(String id) async {
-    final updated = state.where((n) => n.id != id).toList();
-    if (await _writeStore.saveAll(updated)) state = updated;
-  }
-
-  Future<void> clearAll() async {
-    if (await _writeStore.saveAll(const [])) state = [];
-  }
-
   int get unreadCount => state.where((n) => !n.isRead).length;
 }

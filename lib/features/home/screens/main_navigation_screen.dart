@@ -15,7 +15,12 @@ import 'package:cliente_flutter_myaccess/features/notifications/providers/notifi
 import 'package:cliente_flutter_myaccess/features/profile/screens/profile_screen.dart';
 
 class MainNavigationScreen extends ConsumerStatefulWidget {
-  const MainNavigationScreen({super.key});
+  const MainNavigationScreen({super.key, this.initialTab});
+
+  /// Tab seleccionado al montar (0=Inicio, 1=QR, 2=Notis, 3=Perfil).
+  /// Lo usa el tap de notificaciones para aterrizar en el tab Notis
+  /// conservando la barra de navegación.
+  final int? initialTab;
 
   @override
   ConsumerState<MainNavigationScreen> createState() =>
@@ -23,7 +28,10 @@ class MainNavigationScreen extends ConsumerStatefulWidget {
 }
 
 class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
-  int _selectedIndex = 0;
+  late int _selectedIndex = _validTab(widget.initialTab);
+
+  static int _validTab(int? tab) =>
+      tab != null && tab >= 0 && tab <= 3 ? tab : 0;
 
   @override
   void initState() {
