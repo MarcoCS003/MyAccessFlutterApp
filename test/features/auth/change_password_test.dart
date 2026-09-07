@@ -119,7 +119,6 @@ void main() {
 
         final notifier = await loggedInNotifier();
         await notifier.changePassword(
-          currentPassword: '@qwerty1234',
           newPassword: 'NuevaSegura123!',
           confirmation: 'NuevaSegura123!',
         );
@@ -135,6 +134,43 @@ void main() {
         expect(sessions.single.user.mustChangePassword, isFalse);
       },
     );
+
+    test('envía la contraseña default como current_password', () async {
+      when(
+        () => mockDio.post(
+          '/auth/change-password',
+          data: any(named: 'data'),
+          options: any(named: 'options'),
+        ),
+      ).thenAnswer(
+        (_) async => Response(
+          data: {
+            'message': 'Contraseña actualizada',
+            'user': {...teacherWithFlag, 'must_change_password': false},
+          },
+          statusCode: 200,
+          requestOptions: RequestOptions(path: '/auth/change-password'),
+        ),
+      );
+
+      final notifier = await loggedInNotifier();
+      await notifier.changePassword(
+        newPassword: 'NuevaSegura123!',
+        confirmation: 'NuevaSegura123!',
+      );
+
+      final captured =
+          verify(
+                () => mockDio.post(
+                  '/auth/change-password',
+                  data: captureAny(named: 'data'),
+                  options: any(named: 'options'),
+                ),
+              ).captured.single
+              as Map<String, dynamic>;
+      expect(captured['current_password'], '@qwerty1234');
+      expect(captured['password'], 'NuevaSegura123!');
+    });
 
     test(
       '422: conserva la sesión activa y expone fieldErrors (no es logout)',
@@ -164,7 +200,6 @@ void main() {
 
         final notifier = await loggedInNotifier();
         await notifier.changePassword(
-          currentPassword: 'incorrecta',
           newPassword: 'NuevaSegura123!',
           confirmation: 'NuevaSegura123!',
         );

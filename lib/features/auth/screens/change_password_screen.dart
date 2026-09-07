@@ -20,11 +20,9 @@ class ChangePasswordScreen extends ConsumerStatefulWidget {
 }
 
 class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
-  final _currentPasswordController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
-  bool _obscureCurrentPassword = true;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
 
@@ -34,7 +32,6 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
 
   @override
   void dispose() {
-    _currentPasswordController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
@@ -46,7 +43,6 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
     await ref
         .read(authProvider.notifier)
         .changePassword(
-          currentPassword: _currentPasswordController.text,
           newPassword: _passwordController.text,
           confirmation: _confirmPasswordController.text,
         );
@@ -72,7 +68,6 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
     final headerHeight = size.height * 0.35;
     final cardMinHeight = (size.height * 0.65) + 24;
 
-    final currentPasswordError = authState.fieldErrors['current_password'];
     final passwordError = authState.fieldErrors['password'];
 
     return Scaffold(
@@ -194,40 +189,6 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                TextFormField(
-                                  controller: _currentPasswordController,
-                                  obscureText: _obscureCurrentPassword,
-                                  textInputAction: TextInputAction.next,
-                                  enabled: !_isSubmitting,
-                                  decoration: InputDecoration(
-                                    labelText: 'Contraseña actual',
-                                    prefixIcon: const Icon(Icons.lock_outline),
-                                    suffixIcon: IconButton(
-                                      icon: Icon(
-                                        _obscureCurrentPassword
-                                            ? Icons.visibility_off
-                                            : Icons.visibility,
-                                      ),
-                                      onPressed: () {
-                                        setState(() {
-                                          _obscureCurrentPassword =
-                                              !_obscureCurrentPassword;
-                                        });
-                                      },
-                                    ),
-                                    errorText: currentPasswordError,
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                  ),
-                                  validator: (value) {
-                                    if (value == null || value.isEmpty) {
-                                      return 'Ingresa tu contraseña actual';
-                                    }
-                                    return null;
-                                  },
-                                ),
-                                const SizedBox(height: 16),
                                 TextFormField(
                                   controller: _passwordController,
                                   obscureText: _obscurePassword,

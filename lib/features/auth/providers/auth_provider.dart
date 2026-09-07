@@ -36,6 +36,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
   final ApiService _apiService;
   final SessionStore _sessionStore;
 
+  /// Contraseña default de maestros creados por comando. DEBE coincidir con
+  /// `TeacherUserProvisioner::DEFAULT_PASSWORD` del backend; solo se usa en
+  /// el cambio forzado, donde el backend garantiza que la cuenta tiene esa
+  /// contraseña (el backfill verifica el hash antes de encender el flag).
+  static const String _forcedDefaultPassword = '@qwerty1234';
+
   /// Identifica al usuario en Crashlytics con su ID interno (sin PII) y su
   /// rol. Con null limpia la identificación (logout / sin sesión).
   Future<void> _identifyCrashlyticsUser(User? user) async {
@@ -143,11 +149,15 @@ class AuthNotifier extends StateNotifier<AuthState> {
   /// de maestros). El JWT no cambia: solo se actualiza el user persistido
   /// (sesión activa + SessionStore) con mustChangePassword ya apagado.
   ///
+  /// La pantalla no pide la contraseña actual: esta ruta solo se alcanza con
+  /// `mustChangePassword` activo, y el backend solo enciende ese flag en
+  /// cuentas cuya contraseña ES la default (TeacherUserProvisioner la asigna
+  /// y el backfill verifica el hash), así que la app la envía internamente.
+  ///
   /// A diferencia de login/registro, los errores NO cambian el status:
   /// la sesión sigue activa y el guard del router debe mantener al usuario
   /// en /change-password (un 422 de validación no es un logout).
   Future<void> changePassword({
-    required String currentPassword,
     required String newPassword,
     required String confirmation,
   }) async {
@@ -158,7 +168,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
           await _apiService.post(
                 '/auth/change-password',
                 data: {
-                  'current_password': currentPassword,
+                  'current_password': _forcedDefaultPassword,
                   'password': newPassword,
                   'password_confirmation': confirmation,
                 },
