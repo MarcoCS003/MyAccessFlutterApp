@@ -2,7 +2,7 @@ name: cliente_flutter_myaccess
 description: "Cliente Flutter para MyAccess IJL - Control de acceso escolar"
 publish_to: 'none'
 
-version: 1.0.4+6
+version: 1.0.5+8
 
 environment:
   sdk: ^3.12.0
