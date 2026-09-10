@@ -7,6 +7,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/errors/failures.dart';
 import '../../../core/utils/crash_report.dart';
+import '../../../core/utils/local_account_data.dart';
 import '../../../core/utils/user_key.dart';
 import '../../../services/api_service.dart';
 import '../data/session_store.dart';
@@ -212,6 +213,101 @@ class AuthNotifier extends StateNotifier<AuthState> {
         user: state.user,
         errorMessage: 'No se pudo cambiar la contraseña. Intenta de nuevo.',
       );
+    }
+  }
+
+  /// Elimina permanentemente la cuenta activa en el servidor (App Store
+  /// 5.1.1(v)) y todos sus datos locales namespacedos. El borrado es
+  /// inmediato e irreversible: sin período de gracia ni recuperación.
+  ///
+  /// Devuelve el mensaje de éxito del backend, o null si falló (el motivo
+  /// queda en state.errorMessage / state.fieldErrors).
+  ///
+  /// - 200: limpieza local completa ([_purgeDeletedAccount]).
+  /// - 422: contraseña incorrecta. NO cambia el status: la sesión sigue
+  ///   activa (mismo patrón que [changePassword], un 422 no es un logout).
+  /// - 401/403: la cuenta ya no es válida en el servidor (token revocado o
+  ///   rol no permitido): fuerza la misma limpieza local que el 200.
+  Future<String?> deleteAccount({required String password}) async {
+    final user = state.user;
+    if (user == null) return null;
+    try {
+      crashLog('delete_account_attempt');
+
+      final response =
+          await _apiService.delete(
+                '/auth/delete-account',
+                data: {'password': password},
+              )
+              as Map<String, dynamic>;
+
+      await _purgeDeletedAccount(user);
+      return response['message'] as String? ??
+          'Tu cuenta fue eliminada permanentemente.';
+    } on ServerFailure catch (e) {
+      if (e.statusCode == 401 || e.statusCode == 403) {
+        await _purgeDeletedAccount(user);
+        return null;
+      }
+      if (e.statusCode == 422) {
+        final fieldErrors = e.fieldErrors?.map(
+          (key, value) => MapEntry(key, value.first),
+        );
+        state = AuthState(
+          status: AuthStatus.authenticated,
+          user: state.user,
+          errorMessage: e.message,
+          fieldErrors: fieldErrors ?? const {},
+        );
+        return null;
+      }
+      state = AuthState(
+        status: AuthStatus.authenticated,
+        user: state.user,
+        errorMessage: e.message,
+      );
+      return null;
+    } on Failure catch (e) {
+      state = AuthState(
+        status: AuthStatus.authenticated,
+        user: state.user,
+        errorMessage: e.message,
+      );
+      return null;
+    } catch (e, st) {
+      debugPrint('deleteAccount falló: $e\n$st');
+      state = AuthState(
+        status: AuthStatus.authenticated,
+        user: state.user,
+        errorMessage: 'No se pudo eliminar la cuenta. Intenta de nuevo.',
+      );
+      return null;
+    }
+  }
+
+  /// Limpieza local tras la eliminación de la cuenta en el servidor: quita
+  /// la sesión (con rotación del token FCM), borra sus datos namespacedos
+  /// (la cuenta ya no existe: nunca volverán a usarse, a diferencia de
+  /// signOut que los conserva) y activa la cuenta restante si la hay
+  /// (mismo auto-switch que [signOut]).
+  Future<void> _purgeDeletedAccount(User user) async {
+    final userKey = userStorageKey(user.email);
+    crashLog('account_deleted');
+    await _removeSessionInternal(userKey);
+    await deleteLocalDataForAccount(userKey);
+
+    final remaining = _sessionStore.listSessions();
+    if (remaining.isNotEmpty) {
+      await _sessionStore.setActive(remaining.first.userKey);
+      state = AuthState(
+        status: AuthStatus.authenticated,
+        user: remaining.first.user,
+      );
+      await _registerFcmToken();
+      await _identifyCrashlyticsUser(remaining.first.user);
+    } else {
+      state = const AuthState(status: AuthStatus.unauthenticated);
+      await _identifyCrashlyticsUser(null);
     }
   }
 

@@ -333,6 +333,45 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ),
                 onTap: () => _confirmSignOut(context),
               ),
+
+              const Divider(
+                height: 24,
+                indent: 20,
+                endIndent: 20,
+                color: AppTheme.borderLightColor,
+              ),
+
+              ListTile(
+                leading: Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: AppTheme.errorColor.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.person_remove_outlined,
+                    color: AppTheme.errorColor,
+                    size: 20,
+                  ),
+                ),
+                title: Text(
+                  'Eliminar cuenta',
+                  style: GoogleFonts.inter(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.errorColor,
+                  ),
+                ),
+                subtitle: Text(
+                  'Elimina tu cuenta y tus datos permanentemente',
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    color: AppTheme.textSecondaryColor,
+                  ),
+                ),
+                onTap: _confirmDeleteAccount,
+              ),
             ],
           ),
         ),
@@ -572,6 +611,161 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// Paso 1 del borrado de cuenta (App Store 5.1.1(v)): advertencia de que
+  /// la acción es permanente e irreversible.
+  void _confirmDeleteAccount() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          'Eliminar cuenta',
+          style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+        ),
+        content: Text(
+          'Esta acción es permanente e irreversible. Se eliminarán tu '
+          'cuenta, tus vinculaciones con alumnos y tu historial de '
+          'notificaciones. No podrás recuperarla.',
+          style: GoogleFonts.inter(fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => context.pop(),
+            child: Text(
+              'Cancelar',
+              style: GoogleFonts.inter(color: AppTheme.textSecondaryColor),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              context.pop();
+              _askPasswordAndDeleteAccount();
+            },
+            child: Text(
+              'Continuar',
+              style: GoogleFonts.inter(color: AppTheme.errorColor),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Paso 2: confirma con la contraseña actual y llama a
+  /// DELETE /auth/delete-account. En 422 muestra el error inline; en 200
+  /// cierra el diálogo y el guard del router redirige a /login (o al home
+  /// de la cuenta restante si hubo auto-switch).
+  void _askPasswordAndDeleteAccount() {
+    final passwordController = TextEditingController();
+    var obscure = true;
+    var isDeleting = false;
+    String? passwordError;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          title: Text(
+            'Confirma tu contraseña',
+            style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Ingresa tu contraseña actual para eliminar tu cuenta '
+                'permanentemente.',
+                style: GoogleFonts.inter(fontSize: 14),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: passwordController,
+                obscureText: obscure,
+                autofocus: true,
+                enabled: !isDeleting,
+                decoration: InputDecoration(
+                  labelText: 'Contraseña',
+                  errorText: passwordError,
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      obscure
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
+                      size: 20,
+                    ),
+                    onPressed: () => setDialogState(() => obscure = !obscure),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: isDeleting ? null : () => dialogContext.pop(),
+              child: Text(
+                'Cancelar',
+                style: GoogleFonts.inter(color: AppTheme.textSecondaryColor),
+              ),
+            ),
+            TextButton(
+              onPressed: isDeleting
+                  ? null
+                  : () async {
+                      final password = passwordController.text;
+                      if (password.isEmpty) {
+                        setDialogState(
+                          () => passwordError = 'Ingresa tu contraseña',
+                        );
+                        return;
+                      }
+                      setDialogState(() {
+                        isDeleting = true;
+                        passwordError = null;
+                      });
+
+                      final message = await ref
+                          .read(authProvider.notifier)
+                          .deleteAccount(password: password);
+
+                      if (!dialogContext.mounted) return;
+                      if (message != null) {
+                        dialogContext.pop();
+                        if (!mounted) return;
+                        ScaffoldMessenger.of(
+                          context,
+                        ).showSnackBar(SnackBar(content: Text(message)));
+                        return;
+                      }
+
+                      final authState = ref.read(authProvider);
+                      setDialogState(() {
+                        isDeleting = false;
+                        passwordError =
+                            authState.fieldErrors['password'] ??
+                            authState.errorMessage ??
+                            'No se pudo eliminar la cuenta';
+                      });
+                    },
+              child: isDeleting
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Text(
+                      'Eliminar permanentemente',
+                      style: GoogleFonts.inter(
+                        color: AppTheme.errorColor,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }
