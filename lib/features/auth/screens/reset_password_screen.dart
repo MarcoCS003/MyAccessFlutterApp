@@ -251,7 +251,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                                   decoration: InputDecoration(
                                     labelText: 'Nueva contraseña',
                                     helperText:
-                                        'Mínimo 12 caracteres, con mayúsculas, minúsculas, números y símbolos',
+                                        'Mínimo 8 caracteres, con mayúsculas, minúsculas, números y símbolos',
                                     helperMaxLines: 2,
                                     prefixIcon: const Icon(Icons.lock_outline),
                                     suffixIcon: IconButton(
