@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -85,7 +87,17 @@ class AuthNotifier extends StateNotifier<AuthState> {
       _listenToTokenRefresh();
       await _identifyCrashlyticsUser(user);
 
+      // Marca al usuario como autenticado antes de refreshUser para que el
+      // `user` activo sea el recién logueado y no el de la cuenta anterior
+      // (multi-sesión). Refresca después para cargar `user.teacher`
+      // (qr_code del maestro) desde /api/user — best-effort: si falla, el
+      // QR screen mostrará "No QR" y el usuario puede tocar el botón de
+      // refresh manual.
       state = AuthState(status: AuthStatus.authenticated, user: user);
+
+      if (user.isTeacher) {
+        await refreshUser();
+      }
     } on Failure catch (e) {
       state = _errorState(e);
     } catch (e, st) {
@@ -135,6 +147,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
       await _identifyCrashlyticsUser(user);
 
       state = AuthState(status: AuthStatus.authenticated, user: user);
+
+      if (user.isTeacher) {
+        await refreshUser();
+      }
     } on Failure catch (e) {
       state = _errorState(e);
     } catch (e, st) {
@@ -186,6 +202,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
       }
 
       state = AuthState(status: AuthStatus.authenticated, user: user);
+
+      if (user.isTeacher) {
+        await refreshUser();
+      }
     } on ServerFailure catch (e) {
       debugPrint(
         'changePassword error ${e.statusCode}: ${e.message} '
@@ -477,6 +497,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
     state = AuthState(status: AuthStatus.authenticated, user: session.user);
     await _identifyCrashlyticsUser(session.user);
+
+    if (session.user.isTeacher) {
+      await refreshUser();
+    }
     return true;
   }
 
@@ -498,6 +522,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
         }
         state = AuthState(status: AuthStatus.authenticated, user: user);
         await _identifyCrashlyticsUser(user);
+        // Sesiones cacheadas antes de que el backend expusiera `user.teacher`
+        // (commit 40a5a12) o cuentas que acaban de vincular a un maestro
+        // necesitan el qr_code para el QR del home maestro. Refresca en
+        // background; si falla, el QR screen mostrará "No QR" y el usuario
+        // puede tocar el botón de refresh.
+        if (user.isTeacher && user.teacher == null) {
+          unawaited(refreshUser());
+        }
       } else {
         state = const AuthState(status: AuthStatus.unauthenticated);
       }
@@ -516,6 +548,41 @@ class AuthNotifier extends StateNotifier<AuthState> {
     await box.put('user', user.toJson());
     // Multi-sesión: agrega/actualiza la cuenta sin tocar las demás.
     await _sessionStore.saveSession(user: user, jwt: jwtToken);
+  }
+
+  /// Recarga el usuario desde `GET /api/user` para actualizar la relación
+  /// `teacher` (qr_code del maestro). Solo `GET /user` carga esa relación;
+  /// `login`, `register` y `change-password` no la devuelven, así que esta
+  /// llamada es obligatoria para que `TeacherQRScreen` muestre el QR correcto
+  /// en el primer inicio de sesión o tras una regeneración de qr_code en el
+  /// SPA.
+  ///
+  /// Best-effort: en error de red o 5xx no cambia `state` (el usuario sigue
+  /// autenticado con el `User` que tenía) y reporta el fallo a Crashlytics.
+  /// Si el JWT venció (401) tampoco falla duro: el caller decide si forzarlo.
+  Future<void> refreshUser() async {
+    try {
+      crashLog('refresh_user');
+      final response =
+          await _apiService.get('/user') as Map<String, dynamic>;
+      final refreshed = User.fromJson(response);
+
+      final token = await _secureStorage.read(key: AppConstants.jwtTokenKey);
+      final box = Hive.box(AppConstants.authBox);
+      await box.put('user', refreshed.toJson());
+      if (token != null && token.isNotEmpty) {
+        await _sessionStore.saveSession(user: refreshed, jwt: token);
+      }
+
+      state = AuthState(
+        status: AuthStatus.authenticated,
+        user: refreshed,
+      );
+      await _identifyCrashlyticsUser(refreshed);
+    } catch (e, st) {
+      debugPrint('refreshUser error: $e');
+      crashRecordError(e, st);
+    }
   }
 
   Future<void> _registerFcmToken() async {

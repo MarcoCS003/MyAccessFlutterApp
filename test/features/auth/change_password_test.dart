@@ -26,14 +26,17 @@ void main() {
     late MockDio mockDio;
     late MockFlutterSecureStorage mockStorage;
     late Map<String, String> memory;
+    // Refleja el estado real del usuario en backend: cuando cambia la
+    // contraseña, el backend apaga el flag; refreshUser debe respetarlo.
+    bool userMustChangePassword = true;
 
-    const teacherWithFlag = {
-      'id': 2,
-      'name': 'Maestra Dos',
-      'email': 'maestra@ijl.edu.mx',
-      'role': 'teacher',
-      'must_change_password': true,
-    };
+    Map<String, dynamic> teacherWithFlag() => {
+          'id': 2,
+          'name': 'Maestra Dos',
+          'email': 'maestra@ijl.edu.mx',
+          'role': 'teacher',
+          'must_change_password': userMustChangePassword,
+        };
 
     AuthNotifier buildNotifier() {
       final apiService = ApiService(dio: mockDio, secureStorage: mockStorage);
@@ -58,6 +61,7 @@ void main() {
       configureMockDioOptions(mockDio);
       mockStorage = MockFlutterSecureStorage();
       memory = {};
+      userMustChangePassword = true;
       useInMemoryStorage(mockStorage, memory);
 
       when(
@@ -76,7 +80,7 @@ void main() {
         ),
       ).thenAnswer(
         (_) async => Response(
-          data: {'user': teacherWithFlag, 'access_token': 'jwt_maestra'},
+          data: {'user': teacherWithFlag(), 'access_token': 'jwt_maestra'},
           statusCode: 200,
           requestOptions: RequestOptions(path: '/auth/login'),
         ),
@@ -95,6 +99,23 @@ void main() {
           requestOptions: RequestOptions(path: '/update-fcm-token'),
         ),
       );
+
+      when(
+        () => mockDio.get(
+          '/user',
+          queryParameters: any(named: 'queryParameters'),
+          options: any(named: 'options'),
+        ),
+      ).thenAnswer(
+        (_) async => Response(
+          data: {
+            ...teacherWithFlag(),
+            'teacher': {'id': 109, 'qr_code': 'MOCK-QR'},
+          },
+          statusCode: 200,
+          requestOptions: RequestOptions(path: '/user'),
+        ),
+      );
     });
 
     test(
@@ -107,14 +128,21 @@ void main() {
             options: any(named: 'options'),
           ),
         ).thenAnswer(
-          (_) async => Response(
-            data: {
-              'message': 'Contraseña actualizada',
-              'user': {...teacherWithFlag, 'must_change_password': false},
-            },
-            statusCode: 200,
-            requestOptions: RequestOptions(path: '/auth/change-password'),
-          ),
+          (_) async {
+            // El backend refleja el nuevo estado: el flag apagado.
+            userMustChangePassword = false;
+            return Response(
+              data: {
+                'message': 'Contraseña actualizada',
+                'user': {
+                  ...teacherWithFlag(),
+                  'must_change_password': false,
+                },
+              },
+              statusCode: 200,
+              requestOptions: RequestOptions(path: '/auth/change-password'),
+            );
+          },
         );
 
         final notifier = await loggedInNotifier();
@@ -146,7 +174,10 @@ void main() {
         (_) async => Response(
           data: {
             'message': 'Contraseña actualizada',
-            'user': {...teacherWithFlag, 'must_change_password': false},
+            'user': {
+              ...teacherWithFlag(),
+              'must_change_password': false,
+            },
           },
           statusCode: 200,
           requestOptions: RequestOptions(path: '/auth/change-password'),

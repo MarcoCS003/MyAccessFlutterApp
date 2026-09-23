@@ -75,4 +75,94 @@ void main() {
       }
     });
   });
+
+  group('User.teacher (relación con teachers)', () {
+    test('fromJson con teacher poblado', () {
+      final user = User.fromJson(const {
+        'id': 1,
+        'name': 'Maestra',
+        'email': 'm@ijl.mx',
+        'role': 'teacher',
+        'teacher': {'id': 109, 'qr_code': 'DEMO-TEACHER-001'},
+      });
+      expect(user.teacher, isNotNull);
+      expect(user.teacher!.id, 109);
+      expect(user.teacher!.qrCode, 'DEMO-TEACHER-001');
+    });
+
+    test('fromJson con teacher null (parent o sin vínculo)', () {
+      final user = User.fromJson(const {
+        'id': 1,
+        'name': 'Marco',
+        'email': 'm@ijl.mx',
+        'role': 'parent',
+        'teacher': null,
+      });
+      expect(user.teacher, isNull);
+    });
+
+    test('fromJson sin la key (sesión cacheada vieja) → teacher null', () {
+      final user = User.fromJson(const {
+        'id': 1,
+        'name': 'Maestra',
+        'email': 'm@ijl.mx',
+        'role': 'teacher',
+      });
+      expect(user.teacher, isNull);
+    });
+
+    test('fromJson con teacher y qr_code null → teacher.qrCode null', () {
+      final user = User.fromJson(const {
+        'id': 1,
+        'name': 'Maestra',
+        'email': 'm@ijl.mx',
+        'role': 'teacher',
+        'teacher': {'id': 109, 'qr_code': null},
+      });
+      expect(user.teacher, isNotNull);
+      expect(user.teacher!.id, 109);
+      expect(user.teacher!.qrCode, isNull);
+    });
+
+    test('toJson/fromJson round-trip conserva teacher', () {
+      const user = User(
+        id: 1,
+        name: 'Maestra',
+        email: 'm@ijl.mx',
+        role: 'teacher',
+        teacher: UserTeacher(id: 109, qrCode: 'DEMO-TEACHER-001'),
+      );
+      final roundTrip = User.fromJson(user.toJson());
+      expect(roundTrip.teacher, isNotNull);
+      expect(roundTrip.teacher!.id, 109);
+      expect(roundTrip.teacher!.qrCode, 'DEMO-TEACHER-001');
+    });
+
+    test('copyWith reemplaza teacher', () {
+      const user = User(
+        id: 1,
+        name: 'Maestra',
+        email: 'm@ijl.mx',
+        role: 'teacher',
+        teacher: UserTeacher(id: 109, qrCode: 'OLD'),
+      );
+      final updated = user.copyWith(
+        teacher: const UserTeacher(id: 209, qrCode: 'NEW'),
+      );
+      expect(updated.teacher!.id, 209);
+      expect(updated.teacher!.qrCode, 'NEW');
+    });
+
+    test('copyWith con clearTeacher:true pone teacher null', () {
+      const user = User(
+        id: 1,
+        name: 'Maestra',
+        email: 'm@ijl.mx',
+        role: 'teacher',
+        teacher: UserTeacher(id: 109, qrCode: 'OLD'),
+      );
+      final cleared = user.copyWith(clearTeacher: true);
+      expect(cleared.teacher, isNull);
+    });
+  });
 }

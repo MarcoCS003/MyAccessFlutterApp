@@ -318,6 +318,7 @@ void main() {
     late MockDio mockDio;
     late MockFlutterSecureStorage mockStorage;
     late Map<String, String> memory;
+    bool failUserGet = false;
 
     const users = {
       'papa@ijl.edu.mx': {
@@ -350,6 +351,7 @@ void main() {
       configureMockDioOptions(mockDio);
       mockStorage = MockFlutterSecureStorage();
       memory = {};
+      failUserGet = false;
       useInMemoryStorage(mockStorage, memory);
 
       when(
@@ -396,13 +398,41 @@ void main() {
           queryParameters: any(named: 'queryParameters'),
           options: any(named: 'options'),
         ),
-      ).thenAnswer(
-        (_) async => Response(
-          data: {'id': 1},
+      ).thenAnswer((_) async {
+        // Devuelve el perfil del usuario activo (lee el JWT vigente del
+        // storage de test) para que refreshUser conserve el mismo userKey y
+        // no genere sesiones duplicadas en SessionStore. Si no hay sesión,
+        // cae al perfil de Papá Uno.
+        //
+        // Tests individuales pueden activar `failUserGet` para forzar 401
+        // — mocktail no override fiable de thenAnswer → thenThrow cuando
+        // los matchers son idénticos.
+        if (failUserGet) {
+          throw DioException(
+            requestOptions: RequestOptions(path: '/user'),
+            response: Response(
+              data: {'message': 'Unauthenticated'},
+              statusCode: 401,
+              requestOptions: RequestOptions(path: '/user'),
+            ),
+            type: DioExceptionType.badResponse,
+          );
+        }
+        final activeJwt = memory['jwt_token'] ?? 'jwt_papa@ijl.edu.mx';
+        final email = activeJwt.replaceFirst('jwt_', '');
+        final profile = users[email];
+        return Response(
+          data: {
+            'id': profile?['id'] ?? 1,
+            'name': profile?['name'] ?? 'Mock User',
+            'email': email,
+            'role': profile?['role'] ?? 'parent',
+            'teacher': null,
+          },
           statusCode: 200,
           requestOptions: RequestOptions(path: '/user'),
-        ),
-      );
+        );
+      });
     });
 
     test('login de 2 cuentas guarda ambas sesiones', () async {
@@ -476,23 +506,7 @@ void main() {
     test(
       'switchAccount con 401 elimina la sesión expirada y restaura la anterior',
       () async {
-        when(
-          () => mockDio.get(
-            '/user',
-            queryParameters: any(named: 'queryParameters'),
-            options: any(named: 'options'),
-          ),
-        ).thenThrow(
-          DioException(
-            requestOptions: RequestOptions(path: '/user'),
-            response: Response(
-              data: {'message': 'Unauthenticated'},
-              statusCode: 401,
-              requestOptions: RequestOptions(path: '/user'),
-            ),
-            type: DioExceptionType.badResponse,
-          ),
-        );
+        failUserGet = true;
 
         final notifier = buildNotifier();
         await notifier.signInWithEmailPassword('papa@ijl.edu.mx', 'x');
