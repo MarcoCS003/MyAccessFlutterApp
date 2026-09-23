@@ -77,7 +77,7 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
       );
     } catch (e) {
       debugPrint('Error loading package info: $e');
-      state = state.copyWith(version: 'v1.0.0');
+      state = state.copyWith(version: 'v1.0.5');
     }
   }
 }
